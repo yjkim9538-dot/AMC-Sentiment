@@ -91,26 +91,27 @@ winget install --id Cloudflare.cloudflared
 2. `server\tunnel.bat` 더블클릭 → 출력에 나오는 `https://xxxxx.trycloudflare.com` 주소를 **폰에서 열고 로그인**.
    - ⚠️ 이 주소는 **실행할 때마다 바뀝니다**. 상시 사용은 아래 B) 고정 주소를 쓰세요.
 
-### B) 고정 주소(상시 운영) — Cloudflare 무료 계정 + 도메인 필요
-```powershell
-cloudflared tunnel login                         REM 브라우저에서 Cloudflare 로그인/도메인 선택
-cloudflared tunnel create amc                     REM 터널 생성(자격증명 파일 저장됨)
-cloudflared tunnel route dns amc amc.회사도메인.com   REM 원하는 서브도메인에 연결
-```
-그다음 설정 파일 `config.yml` (예: `%USERPROFILE%\.cloudflared\config.yml`):
-```yaml
-tunnel: amc
-credentials-file: C:\Users\<사용자>\.cloudflared\<터널ID>.json
-ingress:
-  - hostname: amc.회사도메인.com
-    service: http://localhost:3000
-  - service: http_status:404
-```
-서비스로 등록(부팅 시 자동, 관리자 PowerShell):
-```powershell
-cloudflared service install
-```
-→ 이제 `https://amc.회사도메인.com` 으로 폰·태블릿·노트북 어디서든 접속(로그인 필요).
+### B) 고정 주소(상시 운영) — Cloudflare 대시보드 + 도메인
+
+가장 쉬운 방법은 **Cloudflare Zero Trust 대시보드**에서 터널을 만들고 토큰 한 줄로 서비스 설치하는 것입니다
+(config 파일 편집 불필요, 서비스로 등록되어 **부팅 시 자동 실행**).
+
+1. **Cloudflare 무료 계정** 생성 → https://dash.cloudflare.com
+2. **도메인 준비** — 없으면 대시보드 **Domain Registration → Register Domains** 에서 신규 등록(자동으로 Cloudflare에 연결).
+   - 이미 다른 곳에서 산 도메인이면 **Websites → Add a site** 로 추가하고 안내대로 네임서버를 Cloudflare로 변경.
+3. **Zero Trust → Networks → Tunnels → Create a tunnel → Cloudflared** → 터널 이름(예: `amc`) 입력 → 저장.
+4. 화면에 나오는 **Windows 설치 명령**(토큰 포함)을 서버 PC의 **관리자 PowerShell**에 붙여넣어 실행:
+   ```powershell
+   cloudflared service install eyJ...(토큰)...
+   ```
+   → 터널이 Windows 서비스로 설치되어 자동 실행됩니다.
+5. 같은 터널의 **Public Hostname** 탭 → **Add a public hostname**:
+   - Subdomain: `amc` / Domain: 내 도메인 / Path: 비움
+   - Service: **`HTTP`** , URL **`localhost:3000`** → 저장.
+6. 완료 → **`https://amc.내도메인`** 으로 폰·태블릿·노트북 어디서든 접속(로그인 필요).
+
+> 추가 보호(선택): Zero Trust → Access 로 이메일 OTP 등 2차 인증을 얹을 수 있습니다.
+> 공개 게재 전 `APP_PASSWORD` 를 반드시 강한 값으로 변경하세요.
 
 ## 사용 흐름
 
