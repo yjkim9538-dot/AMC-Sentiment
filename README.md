@@ -71,9 +71,46 @@ npm start        # http://localhost:3000
    - 서버 PC는 재부팅 후 **자동 로그인**되도록 설정해 두면 무인 상태에서도 서비스가 떠 있습니다.
    - (대안: `pm2`/`nssm` 으로 서비스 등록도 가능.)
 
-> 외부(인터넷)에서 접속이 필요하면 사내 VPN을 통해 접속하는 방식을 권장합니다(공개 인터넷 노출 지양).
-> Netlify 같은 공개 정적 호스팅은 이 앱의 데이터 저장소·AI 챗봇(상시 백엔드)을 올릴 수 없고
-> 민감 자료 노출 위험이 있어 사용하지 않습니다.
+## 어디서든 접속 (Cloudflare Tunnel) — 폰·태블릿·노트북
+
+사내 서버 PC를 **공개 HTTPS 주소 하나로 노출**해 외부 어디서든 접속합니다. 데이터는 PC에 그대로 있고,
+방화벽 포트 개방도 필요 없습니다. (Netlify는 백엔드를 못 올려 사용하지 않습니다 — 이 터널 주소가
+화면·데이터·AI 챗봇·로그인을 모두 제공합니다.)
+
+> ⚠️ **보안**: 내부 자료를 인터넷에 노출하므로 **강력한 `APP_PASSWORD`** 가 필수이고(터널은 HTTPS 자동 제공),
+> **IT·보안부서 승인**을 받는 것을 권장합니다. 추가 보호가 필요하면 Cloudflare Access(이메일 OTP 등)를 더할 수 있습니다.
+
+### 0) cloudflared 설치 (서버 PC, 1회)
+```powershell
+winget install --id Cloudflare.cloudflared
+```
+(또는 https://github.com/cloudflare/cloudflared/releases 에서 `cloudflared-windows-amd64.exe` 다운로드)
+
+### A) 빠른 테스트 (계정 불필요)
+1. `server\start.bat` 로 서버를 켭니다(이미 켜져 있으면 생략).
+2. `server\tunnel.bat` 더블클릭 → 출력에 나오는 `https://xxxxx.trycloudflare.com` 주소를 **폰에서 열고 로그인**.
+   - ⚠️ 이 주소는 **실행할 때마다 바뀝니다**. 상시 사용은 아래 B) 고정 주소를 쓰세요.
+
+### B) 고정 주소(상시 운영) — Cloudflare 무료 계정 + 도메인 필요
+```powershell
+cloudflared tunnel login                         REM 브라우저에서 Cloudflare 로그인/도메인 선택
+cloudflared tunnel create amc                     REM 터널 생성(자격증명 파일 저장됨)
+cloudflared tunnel route dns amc amc.회사도메인.com   REM 원하는 서브도메인에 연결
+```
+그다음 설정 파일 `config.yml` (예: `%USERPROFILE%\.cloudflared\config.yml`):
+```yaml
+tunnel: amc
+credentials-file: C:\Users\<사용자>\.cloudflared\<터널ID>.json
+ingress:
+  - hostname: amc.회사도메인.com
+    service: http://localhost:3000
+  - service: http_status:404
+```
+서비스로 등록(부팅 시 자동, 관리자 PowerShell):
+```powershell
+cloudflared service install
+```
+→ 이제 `https://amc.회사도메인.com` 으로 폰·태블릿·노트북 어디서든 접속(로그인 필요).
 
 ## 사용 흐름
 
