@@ -427,11 +427,12 @@
       var k = keys[i];
       if (row[k] !== undefined && row[k] !== '') return row[k];
     }
-    // 부분 일치(공백/괄호 차이 대응)
+    // 부분 일치(공백/괄호/밑줄 차이 대응 — 양식 헤더 표기가 달라도 인식)
+    var norm = function (x) { return x.replace(/[\s()（）_]/g, ''); };
     var rk = Object.keys(row);
     for (var j = 0; j < keys.length; j++) {
       for (var m = 0; m < rk.length; m++) {
-        if (rk[m].replace(/[\s()（）]/g, '').indexOf(keys[j].replace(/[\s()（）]/g, '')) >= 0) {
+        if (norm(rk[m]).indexOf(norm(keys[j])) >= 0) {
           if (row[rk[m]] !== '') return row[rk[m]];
         }
       }
@@ -573,11 +574,39 @@
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ period: label, submissions: submissions })
     }).then(function (res) {
-      showToast('저장 완료 · 회차 "' + label + '" · 운용사 ' + res.saved + '곳 (' + fileName + ')');
-      return loadPeriods(label);
+      return loadPeriods(label).then(function () {
+        showUploadSummary(label, res.results || [], fileName);
+      });
     }).catch(function (err) {
       showToast('저장 실패: ' + err.message, true);
     });
+  }
+
+  // 업로드 결과 요약 모달 — 저장된 운용사(신규/갱신) 목록을 보여준다.
+  function showUploadSummary(period, results, fileName) {
+    var news = results.filter(function (r) { return r.status === 'new'; });
+    var ups = results.filter(function (r) { return r.status === 'updated'; });
+    function chips(arr) {
+      return arr.map(function (r) { return '<span class="amc-chip">' + esc(r.amc) + '</span>'; }).join('');
+    }
+    var html =
+      '<div class="modal-card">' +
+        '<div class="modal-head">업로드 완료 — 회차 “' + esc(period) + '”</div>' +
+        '<div class="modal-body">' +
+          '<p class="modal-sum">저장된 운용사 <strong>' + results.length + '곳</strong>' +
+            (fileName ? ' <span class="muted">· ' + esc(fileName) + '</span>' : '') + '</p>' +
+          (news.length ? '<div class="modal-group"><div class="mg-title new">신규 ' + news.length + '</div><div class="amc-chips">' + chips(news) + '</div></div>' : '') +
+          (ups.length ? '<div class="modal-group"><div class="mg-title upd">갱신 ' + ups.length + ' <span class="muted">(화면은 최신 반영 · 과거 이력은 서버에 보존)</span></div><div class="amc-chips">' + chips(ups) + '</div></div>' : '') +
+        '</div>' +
+        '<div class="modal-foot"><button class="btn btn-primary" id="modal-ok">확인</button></div>' +
+      '</div>';
+    var back = document.createElement('div');
+    back.className = 'modal-backdrop';
+    back.innerHTML = html;
+    document.body.appendChild(back);
+    function close() { back.remove(); }
+    back.addEventListener('click', function (e) { if (e.target === back) close(); });
+    back.querySelector('#modal-ok').addEventListener('click', close);
   }
 
   // ---------- 회차 ----------
@@ -609,36 +638,8 @@
     });
   }
 
-  // ---------- 양식 다운로드 ----------
-  function downloadTemplate() {
-    var wb = XLSX.utils.book_new();
-
-    var marketAOA = [
-      ['운용사명', '작성일', '방향성', 'KOSPI목표_하단', 'KOSPI목표_상단', 'Pro(긍정사유)', 'Con(부정사유)'],
-      ['※ 작성요령', 'YYYY-MM-DD', '강세/중립/약세 중 택1', '예: 2700', '예: 3000', '상승 요인 서술', '하락 요인 서술'],
-      ['(예시)미래에셋자산운용', '2026-06-20', '강세', 2750, 3050, '반도체 업황 회복, 외국인 순매수', '금리 인하 지연, 중국 둔화']
-    ];
-    var stockAOA = [
-      ['운용사명', '종목명', '의견', '사유'],
-      ['※ 작성요령', '자유 선정(Top Pick)', '매수/중립/매도 중 택1', '투자의견 사유 서술'],
-      ['(예시)미래에셋자산운용', '삼성전자', '매수', 'HBM 경쟁력 회복, 메모리 업황 반등']
-    ];
-    var overseasAOA = [
-      ['운용사명', '작성일', '시장', '기준지수', '방향성', '목표_하단', '목표_상단', 'Pro(긍정사유)', 'Con(부정사유)'],
-      ['※ 작성요령', 'YYYY-MM-DD', '미국/일본/베트남/인도/ACWI/선진국', '예: S&P500', '강세/중립/약세', '예: 5400', '예: 6000', '상승 요인', '하락 요인'],
-      ['(예시)미래에셋자산운용', '2026-06-20', '미국', 'S&P500', '강세', 5400, 6000, 'AI 투자 지속', '밸류에이션 부담']
-    ];
-    // 해외 6개 시장 빈 행 가이드
-    OVERSEAS_MARKETS.forEach(function (mk) {
-      overseasAOA.push(['', '', mk, '', '', '', '', '', '']);
-    });
-
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(marketAOA), SHEET.market);
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(stockAOA), SHEET.stock);
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(overseasAOA), SHEET.overseas);
-    XLSX.writeFile(wb, 'AMC_컨센서스_양식.xlsx');
-    showToast('엑셀 양식을 다운로드했습니다.');
-  }
+  // 양식 다운로드는 정적 파일(public/templates/AMC_컨센서스_양식.xlsx)을 링크로 제공한다.
+  // (드롭다운·서식이 적용된 가독성 높은 양식 — index.html 의 #btn-template 앵커)
 
   // ---------- AI 챗봇 ----------
   var CHAT_SUGGESTIONS = [
@@ -709,7 +710,6 @@
       if (e.target.files && e.target.files.length) handleFiles(e.target.files);
       e.target.value = '';
     });
-    el('btn-template').addEventListener('click', downloadTemplate);
     el('btn-chat').addEventListener('click', function () { openChat(true); });
     el('chat-close').addEventListener('click', function () { openChat(false); });
     el('chat-backdrop').addEventListener('click', function () { openChat(false); });

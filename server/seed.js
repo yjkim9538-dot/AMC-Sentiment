@@ -1,6 +1,9 @@
 // 샘플 데이터로 DB를 초기화한다(데모용). 두 개 회차(2026 1Q, 2026 2Q)를 넣어 추이를 보여준다.
 // 실행: npm run seed
-import { upsertSubmission, countRows } from './db.js';
+import db, { saveSubmission, countRows } from './db.js';
+
+// 데모 회차를 먼저 비워 재실행 시 중복 누적을 방지
+db.prepare(`DELETE FROM submissions WHERE period IN ('2026 1Q', '2026 2Q')`).run();
 
 const INDEX = { 미국: 'S&P500', 일본: 'Nikkei225', 베트남: 'VN-Index', 인도: 'Nifty50', ACWI: 'MSCI ACWI', 선진국: 'MSCI World' };
 const BAND = { 미국: [5300, 6000], 일본: [37000, 42000], 베트남: [1150, 1400], 인도: [22500, 27000], ACWI: [780, 900], 선진국: [3400, 3900] };
@@ -92,10 +95,10 @@ function downgrade(sub) {
 
 const NOW = new Date().toISOString();
 for (const s of Q2.map(downgrade)) {
-  upsertSubmission('2026 1Q', s.amc, { domesticMarket: s.domesticMarket, domesticStocks: s.domesticStocks, overseas: s.overseas }, NOW);
+  saveSubmission('2026 1Q', s.amc, { domesticMarket: s.domesticMarket, domesticStocks: s.domesticStocks, overseas: s.overseas }, NOW);
 }
 for (const s of Q2) {
-  upsertSubmission('2026 2Q', s.amc, { domesticMarket: s.domesticMarket, domesticStocks: s.domesticStocks, overseas: s.overseas }, NOW);
+  saveSubmission('2026 2Q', s.amc, { domesticMarket: s.domesticMarket, domesticStocks: s.domesticStocks, overseas: s.overseas }, NOW);
 }
 
 console.log(`시드 완료. 총 제출 건수: ${countRows()} (2026 1Q, 2026 2Q)`);

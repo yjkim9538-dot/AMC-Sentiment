@@ -5,7 +5,7 @@ import express from 'express';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import {
-  upsertSubmission,
+  saveSubmission,
   listPeriods,
   getConsensus,
   getTrend,
@@ -51,10 +51,10 @@ app.post('/api/submissions', (req, res) => {
     return res.status(400).json({ error: 'period 와 submissions 배열이 필요합니다.' });
   }
   const now = new Date().toISOString();
-  let saved = 0;
+  const results = [];
   for (const s of submissions) {
     if (!s.amc) continue;
-    upsertSubmission(
+    const status = saveSubmission(
       period,
       s.amc,
       {
@@ -64,9 +64,9 @@ app.post('/api/submissions', (req, res) => {
       },
       now
     );
-    saved += 1;
+    results.push({ amc: s.amc, status }); // status: 'new' | 'updated'
   }
-  res.json({ ok: true, period, saved });
+  res.json({ ok: true, period, saved: results.length, results });
 });
 
 // AI 챗봇 — body: { question, history?: [{q, a}] }

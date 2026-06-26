@@ -256,3 +256,20 @@ code { background: rgba(0,0,0,0.06); padding: 1px 5px; border-radius: 4px; font-
   background: #eef3fb; color: var(--navy); border: 1px solid #dbe5f3;
 }
 .chat-chip:hover { background: #e2ebf8; }
+
+/* ---------- Upload result modal ---------- */
+.modal-backdrop {
+  position: fixed; inset: 0; background: rgba(17,32,60,0.45);
+  display: flex; align-items: center; justify-content: center; z-index: 120; padding: 20px;
+}
+.modal-card { background: #fff; border-radius: 12px; box-shadow: var(--shadow); width: 460px; max-width: 94vw; overflow: hidden; }
+.modal-head { background: var(--navy); color: #fff; padding: 14px 18px; font-weight: 700; font-size: 14px; }
+.modal-body { padding: 16px 18px; max-height: 60vh; overflow-y: auto; }
+.modal-sum { margin: 0 0 12px; font-size: 14px; }
+.modal-group { margin-bottom: 12px; }
+.mg-title { font-size: 12px; font-weight: 700; margin-bottom: 6px; }
+.mg-title.new { color: var(--bull); }
+.mg-title.upd { color: var(--bear); }
+.amc-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.amc-chip { font-size: 12px; background: var(--neutral-soft); color: var(--ink); padding: 4px 10px; border-radius: 14px; }
+.modal-foot { padding: 12px 18px; border-top: 1px solid var(--gray-line); text-align: right; }
