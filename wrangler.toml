@@ -1,0 +1,15 @@
+# Cloudflare Pages + D1 설정
+# 배포: 대시보드에서 Git 연결(빌드 출력 디렉터리 = public) 또는 `npx wrangler pages deploy public`
+name = "amc-consensus"
+compatibility_date = "2025-11-01"
+pages_build_output_dir = "public"
+
+# D1 데이터베이스 바인딩 (대시보드에서 D1 생성 후 database_id 채우기)
+[[d1_databases]]
+binding = "DB"
+database_name = "amc-consensus"
+database_id = "여기에_D1_database_id"
+
+# 비밀값(APP_PASSWORD / AUTH_SECRET / ANTHROPIC_API_KEY / ANTHROPIC_MODEL)은
+# wrangler.toml 이 아니라 대시보드 Settings → Environment variables(Secret) 또는
+# `npx wrangler pages secret put APP_PASSWORD` 로 설정하세요. (키를 저장소에 넣지 않음)

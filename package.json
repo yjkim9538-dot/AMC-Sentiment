@@ -1,0 +1,6 @@
+{
+  "name": "amc-consensus",
+  "private": true,
+  "type": "module",
+  "description": "AMC 증시 컨센서스 대시보드 — Cloudflare Pages + D1 배포본(functions/, lib/) 및 정적 프론트(public/)"
+}

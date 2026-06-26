@@ -113,6 +113,43 @@ winget install --id Cloudflare.cloudflared
 > 추가 보호(선택): Zero Trust → Access 로 이메일 OTP 등 2차 인증을 얹을 수 있습니다.
 > 공개 게재 전 `APP_PASSWORD` 를 반드시 강한 값으로 변경하세요.
 
+## 클라우드 상시 배포 (Cloudflare Pages + D1) — 내 PC 없이 항상 접속
+
+내 PC를 켜두지 않아도 **항상 접속**되고, **git에 푸시(업데이트)할 때만** 사이트가 바뀌는 방식입니다.
+백엔드는 Cloudflare Pages Functions(`functions/`), 데이터는 Cloudflare D1(SQLite), 챗봇은 Worker에서
+Anthropic API 호출로 동작합니다. **무료 `*.pages.dev` 주소**가 제공되어 도메인 없이도 어디서든 접속됩니다.
+
+> ⚠️ 이 방식은 데이터가 **Cloudflare(D1)** 에 저장됩니다(사내 PC 아님). 민감 자료이므로 IT·보안부서 검토 권장.
+> 데이터를 사내에 두려면 위의 "사내 상시 서버 + Cloudflare Tunnel" 방식을 쓰세요(둘은 택일).
+
+### 1) D1 데이터베이스 생성 + 초기화
+Cloudflare 대시보드 → **Workers & Pages → D1 → Create** → 이름 `amc-consensus`.
+스키마·데모데이터 적용(둘 중 하나):
+- 대시보드 D1 콘솔에 `schema.sql` → `seed.sql` 내용을 차례로 붙여넣어 실행, 또는
+- CLI: `npx wrangler d1 execute amc-consensus --remote --file=./schema.sql` 그리고 `--file=./seed.sql`
+  - (실데이터만 쓰려면 `seed.sql`(데모) 적용은 생략)
+
+### 2) Pages 프로젝트 생성 (Git 연결 — 권장)
+**Workers & Pages → Create → Pages → Connect to Git** → 이 저장소 선택.
+- **Build command**: 비움 / **Build output directory**: `public` (Functions 는 `functions/` 자동 인식)
+
+### 3) 바인딩·비밀값 설정 (Pages 프로젝트 → Settings)
+- **Functions → D1 database bindings**: 변수명 `DB` → `amc-consensus` 연결 (Production·Preview 모두).
+- **Environment variables (Secret)**:
+  - `APP_PASSWORD` = 강한 비밀번호(필수)
+  - `AUTH_SECRET` = 임의의 긴 문자열(로그인 세션 유지)
+  - `ANTHROPIC_API_KEY` = 챗봇용(없으면 챗봇만 비활성)
+  - `ANTHROPIC_MODEL` = (선택) 기본 `claude-opus-4-8`
+- 저장 후 **Redeploy**.
+
+### 4) 접속 / 운영
+- 발급된 **`https://<프로젝트>.pages.dev`** 로 폰·태블릿·노트북 어디서든 접속 → 로그인.
+- **업데이트**: 이 저장소에 push 하면 Pages가 자동 재배포(데이터는 D1에 그대로 유지).
+- 고정 도메인 원하면 Pages → **Custom domains** 에서 연결(선택).
+
+> CLI 배포 대안: `npx wrangler pages deploy public` (먼저 `npx wrangler login`).
+> 비밀값은 `npx wrangler pages secret put APP_PASSWORD` 등으로도 설정 가능.
+
 ## 사용 흐름
 
 1. **엑셀 양식 다운로드** (`엑셀 양식` 버튼) → 운용사에 배포.
