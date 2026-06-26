@@ -175,6 +175,13 @@ select {
 .procon-box.pro .pc-label { color: var(--bull); }
 .procon-box.con .pc-label { color: var(--bear); }
 .procon-box .pc-text { font-size: 13px; color: var(--ink); }
+.summary-list { margin: 0; padding: 0; list-style: none; }
+.summary-list li { font-size: 13px; padding: 8px 0; border-top: 1px dashed rgba(31, 39, 51, 0.12); display: flex; gap: 8px; }
+.summary-list li:first-child { border-top: none; padding-top: 2px; }
+.summary-list .sl-amc { font-weight: 700; white-space: nowrap; flex: 0 0 auto; }
+.summary-list .sl-text { color: var(--ink); }
+.procon-box.pro .sl-amc { color: var(--bull); }
+.procon-box.con .sl-amc { color: var(--bear); }
 
 .market-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; }
 .market-card .mc-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 4px; }

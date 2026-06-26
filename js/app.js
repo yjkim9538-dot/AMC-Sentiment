@@ -98,6 +98,18 @@
 
   function badge(text, cls) { return '<span class="badge ' + cls + '">' + esc(text) + '</span>'; }
 
+  // 전 운용사의 Pro/Con 의견을 모아 운용사명과 함께 목록화
+  function summaryList(rows, key) {
+    var items = rows.filter(function (r) { return r[key]; }).map(function (r) {
+      return '<li><span class="sl-amc">' + esc(r.amc) + '</span><span class="sl-text">' + esc(r[key]) + '</span></li>';
+    }).join('');
+    if (!items) return '<div class="pc-text muted">의견 없음</div>';
+    return '<ul class="summary-list">' + items + '</ul>';
+  }
+  function countWithReason(rows, key) {
+    return rows.filter(function (r) { return r[key]; }).length;
+  }
+
   // ---------- 뷰 1: 국내 통합 ----------
   function renderDomesticOverview() {
     var host = el('domestic-overview');
@@ -118,6 +130,15 @@
     html += '<div class="card summary-card" style="flex:2 1 320px"><div class="label">방향성 분포</div>' +
       distBar(counts, VIEW_KEYS, viewClass) + '</div>';
     html += '</div>';
+
+    // 운용사 의견 종합 (긍정 / 부정)
+    html += '<div class="section-title">운용사 의견 종합 — 긍정 · 부정</div>';
+    html += '<div class="procon">' +
+      '<div class="procon-box pro"><div class="pc-label">긍정 요인 (Pro) · ' +
+      countWithReason(mkt, 'pro') + '개사</div>' + summaryList(mkt, 'pro') + '</div>' +
+      '<div class="procon-box con"><div class="pc-label">부정 요인 (Con) · ' +
+      countWithReason(mkt, 'con') + '개사</div>' + summaryList(mkt, 'con') + '</div>' +
+      '</div>';
 
     // 운용사별 비교 표
     html += '<div class="section-title">운용사별 시장 전망</div>';
