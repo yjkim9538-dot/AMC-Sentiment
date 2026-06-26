@@ -417,10 +417,33 @@
   }
 
   // ---------- 엑셀 파싱 ----------
+  // 시트를 객체 배열로 변환. 헤더가 1행이 아니어도(제목·안내 행이 위에 있어도)
+  // '운용사명'이 들어간 행을 찾아 그 행을 헤더로 사용한다.
   function sheetToRows(wb, name) {
     var ws = wb.Sheets[name];
     if (!ws) return [];
-    return XLSX.utils.sheet_to_json(ws, { defval: '' });
+    var aoa = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+    if (!aoa.length) return [];
+    var hi = -1;
+    for (var i = 0; i < Math.min(aoa.length, 20); i++) {
+      var norm = (aoa[i] || []).map(function (x) { return String(x).replace(/\s/g, ''); });
+      if (norm.indexOf('운용사명') >= 0 || norm.indexOf('운용사') >= 0) { hi = i; break; }
+    }
+    if (hi < 0) hi = 0;
+    var headers = (aoa[hi] || []).map(function (x) { return String(x).trim(); });
+    var out = [];
+    for (var r = hi + 1; r < aoa.length; r++) {
+      var arr = aoa[r] || [];
+      var obj = {}, any = false;
+      for (var c = 0; c < headers.length; c++) {
+        if (!headers[c]) continue;
+        var v = arr[c] === undefined ? '' : arr[c];
+        obj[headers[c]] = v;
+        if (String(v).trim() !== '') any = true;
+      }
+      if (any) out.push(obj);
+    }
+    return out;
   }
   function pick(row, keys) {
     for (var i = 0; i < keys.length; i++) {
