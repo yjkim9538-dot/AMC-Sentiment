@@ -14,13 +14,18 @@
         <p class="subtitle">군인공제회 증권운용1팀 · 위탁운용사(AMC) 컨센서스</p>
       </div>
       <div class="header-actions">
-        <button id="btn-template" class="btn btn-ghost" type="button">엑셀 양식 다운로드</button>
+        <div class="period-box">
+          <label for="period-select">회차</label>
+          <select id="period-select"><option>로딩 중…</option></select>
+        </div>
+        <button id="btn-template" class="btn btn-ghost" type="button">엑셀 양식</button>
         <label for="file-input" class="btn btn-primary">엑셀 업로드</label>
         <input id="file-input" type="file" accept=".xlsx,.xls" hidden />
+        <button id="btn-chat" class="btn btn-accent" type="button">AI 챗봇</button>
       </div>
     </div>
     <div class="source-bar">
-      <span id="data-source" class="source-pill">샘플 데이터 표시 중</span>
+      <span id="data-source" class="source-pill">로딩 중…</span>
       <span id="data-asof" class="source-meta"></span>
     </div>
   </header>
@@ -30,6 +35,7 @@
     <button class="tab" data-tab="domestic-amc" role="tab">국내 운용사별</button>
     <button class="tab" data-tab="overseas-overview" role="tab">해외 통합</button>
     <button class="tab" data-tab="overseas-amc" role="tab">해외 운용사별</button>
+    <button class="tab" data-tab="trend" role="tab">회차 추이</button>
   </nav>
 
   <main class="content">
@@ -37,12 +43,27 @@
     <section id="domestic-amc" class="view"></section>
     <section id="overseas-overview" class="view"></section>
     <section id="overseas-amc" class="view"></section>
+    <section id="trend" class="view"></section>
   </main>
+
+  <!-- AI 챗봇 드로어 -->
+  <aside id="chat-drawer" class="chat-drawer" aria-hidden="true">
+    <div class="chat-head">
+      <span>AI 챗봇 · 과거 데이터 검색</span>
+      <button id="chat-close" class="chat-close" type="button" aria-label="닫기">×</button>
+    </div>
+    <div id="chat-messages" class="chat-messages"></div>
+    <form id="chat-form" class="chat-form">
+      <textarea id="chat-input" rows="2" placeholder="예: 2026 2Q에 삼성전자를 매수로 본 운용사는?"></textarea>
+      <button type="submit" class="btn btn-primary">전송</button>
+    </form>
+  </aside>
+  <div id="chat-backdrop" class="chat-backdrop" hidden></div>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
   <footer class="app-footer">
-    <span>내부 검토용 Mock · 백엔드 없이 브라우저에서 엑셀을 파싱합니다.</span>
+    <span>군인공제회 증권운용1팀 내부 도구 · 데이터 저장소(SQLite) 기반 누적 관리</span>
   </footer>
 
   <script src="lib/xlsx.full.min.js"></script>

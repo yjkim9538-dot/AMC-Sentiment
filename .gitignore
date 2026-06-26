@@ -1,3 +1,10 @@
 .DS_Store
 node_modules/
 *.log
+
+# 데이터 저장소 (런타임 생성, 커밋하지 않음)
+data/*.db
+data/*.db-*
+
+# 환경변수
+.env

@@ -13,10 +13,22 @@
   // 시트 이름(엑셀)
   var SHEET = { market: '국내시장', stock: '국내종목', overseas: '해외' };
 
-  var state = null; // 현재 표시 중인 정규화 데이터
+  var state = null;          // 현재 표시 중인 정규화 데이터
+  var backend = false;       // 백엔드(서버) 사용 가능 여부
+  var chatEnabled = false;   // AI 챗봇(ANTHROPIC_API_KEY) 가용 여부
+  var periods = [];          // 회차 목록
+  var currentPeriod = null;  // 현재 선택된 회차
+  var chatHistory = [];      // 챗봇 대화 이력 [{q, a}]
 
   // ---------- 유틸 ----------
   function el(id) { return document.getElementById(id); }
+
+  function api(path, opts) {
+    return fetch(path, opts).then(function (r) {
+      if (!r.ok) return r.json().then(function (j) { throw new Error(j.error || ('HTTP ' + r.status)); });
+      return r.json();
+    });
+  }
 
   function viewClass(v) {
     if (v === '강세') return 'bull';
@@ -346,14 +358,47 @@
     el('sel-ov-amc').addEventListener('change', function () { renderOverseasByAMC(this.value); });
   }
 
+  // ---------- 뷰 5: 회차 추이 ----------
+  function renderTrend() {
+    var host = el('trend');
+    if (!backend) {
+      host.innerHTML = '<div class="empty">회차 추이는 백엔드 서버 실행 시 제공됩니다.<br>' +
+        '<span class="muted">server 디렉터리에서 <code>npm start</code> 후 접속하세요.</span></div>';
+      return;
+    }
+    api('/api/trend').then(function (res) {
+      var trend = res.trend || [];
+      if (!trend.length) { host.innerHTML = '<div class="empty">추이 데이터가 없습니다.</div>'; return; }
+      var html = '<div class="section-title">회차별 국내 증시 방향성 추이</div>';
+      html += trendTable(trend, 'domestic');
+      html += '<div class="section-title">회차별 해외 증시 방향성 추이</div>';
+      html += trendTable(trend, 'overseas');
+      host.innerHTML = html;
+    }).catch(function () {
+      host.innerHTML = '<div class="empty">추이를 불러오지 못했습니다.</div>';
+    });
+  }
+  function trendTable(trend, key) {
+    var html = '<div class="table-wrap"><table><thead><tr>' +
+      '<th>회차</th><th>응답 운용사</th><th>방향성 분포 (강세·중립·약세)</th></tr></thead><tbody>';
+    trend.forEach(function (t) {
+      html += '<tr><td><strong>' + esc(t.period) + '</strong></td>' +
+        '<td class="cell-center">' + t.amcCount + '</td>' +
+        '<td style="min-width:260px">' + distBar(t[key], VIEW_KEYS, viewClass) + '</td></tr>';
+    });
+    html += '</tbody></table></div>';
+    return html;
+  }
+
   // ---------- 렌더 전체 ----------
   function renderAll() {
     renderDomesticOverview();
     renderDomesticByAMC();
     renderOverseasOverview();
     renderOverseasByAMC();
+    renderTrend();
     el('data-source').textContent = state.meta.source || '데이터';
-    el('data-asof').textContent = state.meta.asOf ? '기준일 ' + state.meta.asOf : '';
+    el('data-asof').textContent = state.meta.asOf ? (backend ? '회차 ' : '기준일 ') + state.meta.asOf : '';
   }
 
   // ---------- 탭 ----------
@@ -453,11 +498,15 @@
           showToast('인식 가능한 데이터가 없습니다. 양식(국내시장/국내종목/해외 시트)을 확인해 주세요.', true);
           return;
         }
-        parsed.meta = { source: '업로드: ' + file.name, asOf: new Date().toLocaleDateString('ko-KR') };
-        state = parsed;
-        renderAll();
-        showToast('업로드 완료 · 시장 ' + parsed.domesticMarket.length + '건, 종목 ' +
-          parsed.domesticStocks.length + '건, 해외 ' + parsed.overseas.length + '건');
+        if (backend) {
+          submitToBackend(parsed, file.name);
+        } else {
+          parsed.meta = { source: '업로드: ' + file.name, asOf: new Date().toLocaleDateString('ko-KR') };
+          state = parsed;
+          renderAll();
+          showToast('업로드 완료(로컬) · 시장 ' + parsed.domesticMarket.length + '건, 종목 ' +
+            parsed.domesticStocks.length + '건, 해외 ' + parsed.overseas.length + '건');
+        }
       } catch (err) {
         console.error(err);
         showToast('파일을 읽는 중 오류가 발생했습니다. 엑셀 형식인지 확인해 주세요.', true);
@@ -465,6 +514,73 @@
     };
     reader.onerror = function () { showToast('파일을 읽을 수 없습니다.', true); };
     reader.readAsArrayBuffer(file);
+  }
+
+  // 파싱 결과를 운용사별로 묶어 백엔드에 저장(회차는 자유 입력, 기본값=오늘 날짜).
+  function submitToBackend(parsed, fileName) {
+    // 운용사 수집(수령 시점이 비정기적이므로 회차 라벨은 사용자가 자유 입력)
+    var byAMC = {};
+    function bucket(a) { if (!byAMC[a]) byAMC[a] = { amc: a, domesticMarket: null, domesticStocks: [], overseas: [] }; return byAMC[a]; }
+    parsed.domesticMarket.forEach(function (r) {
+      var b = bucket(r.amc);
+      b.domesticMarket = { asOf: r.asOf, view: r.view, targetLow: r.targetLow, targetHigh: r.targetHigh, pro: r.pro, con: r.con };
+    });
+    parsed.domesticStocks.forEach(function (r) {
+      bucket(r.amc).domesticStocks.push({ stock: r.stock, opinion: r.opinion, reason: r.reason });
+    });
+    parsed.overseas.forEach(function (r) {
+      bucket(r.amc).overseas.push({ asOf: r.asOf, market: r.market, index: r.index, view: r.view, targetLow: r.targetLow, targetHigh: r.targetHigh, pro: r.pro, con: r.con });
+    });
+    var submissions = Object.keys(byAMC).map(function (k) { return byAMC[k]; });
+
+    var today = new Date().toISOString().slice(0, 10);
+    var label = window.prompt(
+      '저장할 회차(수령 기준) 라벨을 입력하세요.\n수령 간격이 비정기적이므로 날짜로 관리하는 것을 권장합니다.\n예: ' + today + ' 또는 "2026-06 미래에셋 수시"',
+      currentPeriod && periods.length ? today : today
+    );
+    if (label === null) return; // 취소
+    label = label.trim();
+    if (!label) { showToast('회차 라벨이 비어 있어 저장을 취소했습니다.', true); return; }
+
+    api('/api/submissions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ period: label, submissions: submissions })
+    }).then(function (res) {
+      showToast('저장 완료 · 회차 "' + label + '" · 운용사 ' + res.saved + '곳 (' + fileName + ')');
+      return loadPeriods(label);
+    }).catch(function (err) {
+      showToast('저장 실패: ' + err.message, true);
+    });
+  }
+
+  // ---------- 회차 ----------
+  function loadPeriods(selectPeriod) {
+    return api('/api/periods').then(function (res) {
+      periods = res.periods || [];
+      var sel = el('period-select');
+      if (!periods.length) {
+        sel.innerHTML = '<option value="">데이터 없음</option>';
+        currentPeriod = null;
+        state = { domesticMarket: [], domesticStocks: [], overseas: [], meta: { source: '데이터 없음' } };
+        renderAll();
+        return;
+      }
+      currentPeriod = selectPeriod && periods.some(function (p) { return p.period === selectPeriod; })
+        ? selectPeriod : periods[0].period;
+      sel.innerHTML = periods.map(function (p) {
+        return '<option value="' + esc(p.period) + '"' + (p.period === currentPeriod ? ' selected' : '') +
+          '>' + esc(p.period) + ' (' + p.amcCount + '개사)</option>';
+      }).join('');
+      return loadConsensus(currentPeriod);
+    });
+  }
+  function loadConsensus(period) {
+    return api('/api/consensus?period=' + encodeURIComponent(period)).then(function (res) {
+      res.meta = { source: '회차: ' + period, asOf: period };
+      state = res;
+      renderAll();
+    });
   }
 
   // ---------- 양식 다운로드 ----------
@@ -498,11 +614,49 @@
     showToast('엑셀 양식을 다운로드했습니다.');
   }
 
+  // ---------- AI 챗봇 ----------
+  function openChat(open) {
+    el('chat-drawer').classList.toggle('is-open', open);
+    el('chat-drawer').setAttribute('aria-hidden', open ? 'false' : 'true');
+    el('chat-backdrop').hidden = !open;
+    if (open) setTimeout(function () { el('chat-input').focus(); }, 50);
+  }
+  function addChatMsg(role, text, pending) {
+    var box = el('chat-messages');
+    var div = document.createElement('div');
+    div.className = 'chat-msg ' + role + (pending ? ' pending' : '');
+    div.textContent = text;
+    box.appendChild(div);
+    box.scrollTop = box.scrollHeight;
+    return div;
+  }
+  function sendChat() {
+    var input = el('chat-input');
+    var q = input.value.trim();
+    if (!q) return;
+    if (!backend) { addChatMsg('bot', 'AI 챗봇은 백엔드 서버 실행 시 사용할 수 있습니다.'); return; }
+    if (!chatEnabled) { addChatMsg('bot', 'AI 챗봇을 쓰려면 서버에 ANTHROPIC_API_KEY를 설정하세요. (그 외 기능은 정상 동작합니다.)'); input.value = ''; return; }
+    addChatMsg('user', q);
+    input.value = '';
+    var pending = addChatMsg('bot', '생각 중…', true);
+    api('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question: q, history: chatHistory.slice(-6) })
+    }).then(function (res) {
+      pending.remove();
+      var a = res.answer || '(응답 없음)';
+      addChatMsg('bot', a);
+      if (res.available) chatHistory.push({ q: q, a: a });
+    }).catch(function (err) {
+      pending.remove();
+      addChatMsg('bot', '오류: ' + err.message);
+    });
+  }
+
   // ---------- 초기화 ----------
   function init() {
-    state = window.SAMPLE_DATA;
-    renderAll();
-
+    // 공통 UI 바인딩
     document.querySelectorAll('.tab').forEach(function (t) {
       t.addEventListener('click', function () { activateTab(t.getAttribute('data-tab')); });
     });
@@ -511,6 +665,36 @@
       e.target.value = '';
     });
     el('btn-template').addEventListener('click', downloadTemplate);
+    el('btn-chat').addEventListener('click', function () { openChat(true); });
+    el('chat-close').addEventListener('click', function () { openChat(false); });
+    el('chat-backdrop').addEventListener('click', function () { openChat(false); });
+    el('chat-form').addEventListener('submit', function (e) { e.preventDefault(); sendChat(); });
+    el('chat-input').addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChat(); }
+    });
+    el('period-select').addEventListener('change', function () {
+      if (backend && this.value) { currentPeriod = this.value; loadConsensus(this.value); }
+    });
+
+    // 백엔드 감지 → 있으면 데이터 저장소 모드, 없으면 샘플(로컬) 모드
+    api('/api/health').then(function (h) {
+      backend = true;
+      chatEnabled = !!h.chat;
+      el('data-source').textContent = '데이터 저장소 연결됨';
+      addChatMsg('bot', chatEnabled
+        ? '안녕하세요. 누적된 컨센서스 데이터에 대해 질문해 주세요. 예) "2026 2Q에 KOSPI를 강세로 본 운용사는?"'
+        : 'AI 챗봇은 서버에 ANTHROPIC_API_KEY가 설정되면 활성화됩니다. (대시보드/데이터 누적은 정상 동작합니다.)');
+      return loadPeriods();
+    }).catch(function () {
+      // 오프라인(정적 파일) 모드 — 샘플 데이터
+      backend = false;
+      var sel = el('period-select');
+      sel.innerHTML = '<option>샘플 데이터</option>';
+      sel.disabled = true;
+      state = window.SAMPLE_DATA;
+      renderAll();
+      el('data-source').textContent = '샘플 데이터 (오프라인)';
+    });
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
