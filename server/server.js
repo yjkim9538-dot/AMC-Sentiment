@@ -1,5 +1,6 @@
 // AMC 증시 컨센서스 대시보드 — 백엔드 서버
 // 정적 프론트엔드 서빙 + 데이터 저장소(SQLite) API + AI 챗봇 API
+import './env.js'; // ⚠️ 최상단: .env 를 chat.js 보다 먼저 로드
 import express from 'express';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';

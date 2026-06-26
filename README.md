@@ -31,13 +31,24 @@ npm start        # http://localhost:3000
   (미설정 시 챗봇만 비활성화되고 나머지 기능은 정상 동작.)
 - 백엔드 없이 `public/index.html`을 브라우저에서 바로 열면 **샘플 데이터(오프라인)** 로 화면만 미리볼 수 있습니다.
 
-Windows PowerShell 예시:
-```powershell
-cd server
-npm install
-$env:ANTHROPIC_API_KEY="sk-ant-..."   # AI 챗봇 사용 시
-npm start
-```
+### Windows — 원클릭 실행 (권장)
+
+매번 환경변수를 입력하지 않도록 `.env` + `start.bat`를 사용합니다.
+
+1. **API 키 저장** — `server\.env.example` 을 같은 폴더에 `.env` 로 복사하고 키 입력:
+   ```powershell
+   cd server
+   Copy-Item .env.example .env
+   notepad .env      # ANTHROPIC_API_KEY= 뒤에 실제 키 붙여넣고 저장
+   ```
+   - `.env` 는 git에 올라가지 않습니다(비밀키 보호).
+2. **실행** — `server\start.bat` **더블클릭** (또는 `./start.bat`).
+   - 최초 1회는 자동으로 `npm install` 후 실행됩니다.
+   - 브라우저에서 http://localhost:3000
+
+> **사내망 TLS 검사 대응:** `start.bat` 는 서버 폴더에 `corp-ca.pem`(회사 루트 인증서)이 있으면
+> 이를 신뢰(`NODE_EXTRA_CA_CERTS`)해 안전하게 외부 호출하고, 없으면 임시로 TLS 검증을 끄고 실행합니다.
+> 정식 운영 시 IT부서에서 회사 루트 인증서를 받아 `server\corp-ca.pem` 으로 저장하세요(이 파일도 git 미포함).
 
 ## 사용 흐름
 

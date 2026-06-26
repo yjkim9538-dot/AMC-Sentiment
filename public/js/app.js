@@ -615,6 +615,25 @@
   }
 
   // ---------- AI 챗봇 ----------
+  var CHAT_SUGGESTIONS = [
+    '이번 회차 KOSPI를 강세로 본 운용사는?',
+    '회차 대비 국내 방향성이 바뀐 운용사 알려줘',
+    '삼성전자에 대한 운용사별 의견 정리',
+    '해외 시장 중 가장 강세 의견이 많은 곳은?'
+  ];
+  function renderSuggest() {
+    var box = el('chat-suggest');
+    if (!box) return;
+    box.innerHTML = CHAT_SUGGESTIONS.map(function (q) {
+      return '<button type="button" class="chat-chip">' + esc(q) + '</button>';
+    }).join('');
+    box.querySelectorAll('.chat-chip').forEach(function (b) {
+      b.addEventListener('click', function () {
+        el('chat-input').value = b.textContent;
+        sendChat();
+      });
+    });
+  }
   function openChat(open) {
     el('chat-drawer').classList.toggle('is-open', open);
     el('chat-drawer').setAttribute('aria-hidden', open ? 'false' : 'true');
@@ -672,6 +691,7 @@
     el('chat-input').addEventListener('keydown', function (e) {
       if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChat(); }
     });
+    renderSuggest();
     el('period-select').addEventListener('change', function () {
       if (backend && this.value) { currentPeriod = this.value; loadConsensus(this.value); }
     });
