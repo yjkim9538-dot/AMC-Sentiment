@@ -5,11 +5,11 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "start": "node --experimental-sqlite server.js",
-    "seed": "node --experimental-sqlite seed.js"
+    "start": "node server.js",
+    "seed": "node seed.js"
   },
   "engines": {
-    "node": ">=22.5.0"
+    "node": ">=22.13.0"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.40.0",

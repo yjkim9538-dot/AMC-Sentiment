@@ -26,7 +26,7 @@ npm run seed     # (선택) 데모용 샘플 2개 회차 적재
 npm start        # http://localhost:3000
 ```
 
-- Node.js **22.5 이상** 필요 (내장 `node:sqlite` 사용 — 별도 DB 설치/네이티브 빌드 불필요).
+- Node.js **22.13 이상** 필요 (Node 24/26 권장). 내장 `node:sqlite` 사용 — 별도 DB 설치/네이티브 빌드 불필요.
 - **AI 챗봇**을 쓰려면 서버 실행 전 환경변수 설정: `ANTHROPIC_API_KEY=...`
   (미설정 시 챗봇만 비활성화되고 나머지 기능은 정상 동작.)
 - 백엔드 없이 `public/index.html`을 브라우저에서 바로 열면 **샘플 데이터(오프라인)** 로 화면만 미리볼 수 있습니다.
