@@ -723,9 +723,14 @@
     });
 
     // 백엔드 감지 → 있으면 데이터 저장소 모드, 없으면 샘플(로컬) 모드
+    el('btn-logout').addEventListener('click', function () {
+      fetch('/api/logout', { method: 'POST' }).then(function () { location.reload(); });
+    });
+
     api('/api/health').then(function (h) {
       backend = true;
       chatEnabled = !!h.chat;
+      if (h.auth) el('btn-logout').hidden = false;
       el('data-source').textContent = '데이터 저장소 연결됨';
       addChatMsg('bot', chatEnabled
         ? '안녕하세요. 누적된 컨센서스 데이터에 대해 질문해 주세요. 예) "2026 2Q에 KOSPI를 강세로 본 운용사는?"'
