@@ -488,32 +488,58 @@
     return { domesticMarket: domesticMarket, domesticStocks: domesticStocks, overseas: overseas };
   }
 
-  function handleFile(file) {
-    var reader = new FileReader();
-    reader.onload = function (e) {
-      try {
-        var wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
-        var parsed = parseWorkbook(wb);
-        if (!parsed.domesticMarket.length && !parsed.domesticStocks.length && !parsed.overseas.length) {
-          showToast('인식 가능한 데이터가 없습니다. 양식(국내시장/국내종목/해외 시트)을 확인해 주세요.', true);
-          return;
+  // 엑셀 한 개를 읽어 파싱(Promise). 실패해도 reject 하지 않고 parsed:null 로 반환.
+  function readWorkbook(file) {
+    return new Promise(function (resolve) {
+      var reader = new FileReader();
+      reader.onload = function (e) {
+        try {
+          var wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
+          resolve({ fileName: file.name, parsed: parseWorkbook(wb) });
+        } catch (err) {
+          console.error(err);
+          resolve({ fileName: file.name, parsed: null });
         }
-        if (backend) {
-          submitToBackend(parsed, file.name);
-        } else {
-          parsed.meta = { source: '업로드: ' + file.name, asOf: new Date().toLocaleDateString('ko-KR') };
-          state = parsed;
-          renderAll();
-          showToast('업로드 완료(로컬) · 시장 ' + parsed.domesticMarket.length + '건, 종목 ' +
-            parsed.domesticStocks.length + '건, 해외 ' + parsed.overseas.length + '건');
-        }
-      } catch (err) {
-        console.error(err);
-        showToast('파일을 읽는 중 오류가 발생했습니다. 엑셀 형식인지 확인해 주세요.', true);
+      };
+      reader.onerror = function () { resolve({ fileName: file.name, parsed: null }); };
+      reader.readAsArrayBuffer(file);
+    });
+  }
+
+  function hasData(p) {
+    return p && (p.domesticMarket.length || p.domesticStocks.length || p.overseas.length);
+  }
+
+  // 여러 파일을 한 번에 처리 — 모두 합쳐 한 회차로 누적(백엔드) / 미리보기(오프라인).
+  function handleFiles(fileList) {
+    var files = Array.prototype.slice.call(fileList);
+    Promise.all(files.map(readWorkbook)).then(function (results) {
+      var ok = results.filter(function (r) { return hasData(r.parsed); });
+      var failed = results.length - ok.length;
+      if (!ok.length) {
+        showToast('인식 가능한 데이터가 없습니다. 양식(국내시장/국내종목/해외 시트)을 확인해 주세요.', true);
+        return;
       }
-    };
-    reader.onerror = function () { showToast('파일을 읽을 수 없습니다.', true); };
-    reader.readAsArrayBuffer(file);
+      // 모든 파일 병합
+      var merged = { domesticMarket: [], domesticStocks: [], overseas: [] };
+      ok.forEach(function (r) {
+        merged.domesticMarket = merged.domesticMarket.concat(r.parsed.domesticMarket);
+        merged.domesticStocks = merged.domesticStocks.concat(r.parsed.domesticStocks);
+        merged.overseas = merged.overseas.concat(r.parsed.overseas);
+      });
+      var label = ok.length + '개 파일' + (failed ? ' (' + failed + '개 제외)' : '');
+      if (backend) {
+        submitToBackend(merged, label);
+      } else {
+        merged.meta = { source: '업로드(로컬): ' + label, asOf: new Date().toLocaleDateString('ko-KR') };
+        state = merged;
+        renderAll();
+        showToast('업로드 완료(로컬) · ' + label);
+      }
+    }).catch(function (err) {
+      console.error(err);
+      showToast('파일을 읽는 중 오류가 발생했습니다.', true);
+    });
   }
 
   // 파싱 결과를 운용사별로 묶어 백엔드에 저장(회차는 자유 입력, 기본값=오늘 날짜).
@@ -680,7 +706,7 @@
       t.addEventListener('click', function () { activateTab(t.getAttribute('data-tab')); });
     });
     el('file-input').addEventListener('change', function (e) {
-      if (e.target.files && e.target.files[0]) handleFile(e.target.files[0]);
+      if (e.target.files && e.target.files.length) handleFiles(e.target.files);
       e.target.value = '';
     });
     el('btn-template').addEventListener('click', downloadTemplate);
