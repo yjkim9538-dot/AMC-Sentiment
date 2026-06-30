@@ -469,14 +469,33 @@
     return /^※/.test(amc) || /작성요령/.test(amc) || /^\(예시\)/.test(amc);
   }
 
+  // 운용사명을 행마다 다시 적지 않아도 되도록 — 빈 칸은 위에서 마지막으로 본
+  // (예시 아닌) 운용사명을 상속받는다. 한 파일은 한 운용사 작성 기준.
+  function effAmc(rows, fallback) {
+    var last = '', out = [];
+    for (var i = 0; i < rows.length; i++) {
+      var a = String(pick(rows[i], ['운용사명', '운용사'])).trim();
+      if (a) {
+        // 값이 있는 칸: 예시(안내)행이면 상속하지 않고 빈값으로 둬 downstream 필터가 제거,
+        // 실제 운용사명이면 그대로 쓰고 이후 행이 상속할 기준으로 기억한다.
+        if (isGuideRow(a)) { out.push(''); }
+        else { last = a; out.push(a); }
+      } else {
+        out.push(last || fallback || ''); // 빈 칸 → 위 운용사명(또는 파일 단일 운용사명) 상속
+      }
+    }
+    return out;
+  }
+
   function parseWorkbook(wb) {
     var mRows = sheetToRows(wb, SHEET.market);
     var sRows = sheetToRows(wb, SHEET.stock);
     var oRows = sheetToRows(wb, SHEET.overseas);
 
-    var domesticMarket = mRows.map(function (r) {
+    var mAmc = effAmc(mRows, '');
+    var domesticMarket = mRows.map(function (r, i) {
       return {
-        amc: String(pick(r, ['운용사명', '운용사'])).trim(),
+        amc: mAmc[i],
         asOf: String(pick(r, ['작성일'])).trim(),
         view: String(pick(r, ['방향성', '전망'])).trim(),
         targetLow: num(pick(r, ['KOSPI목표_하단', '목표_하단', '하단'])),
@@ -486,18 +505,26 @@
       };
     }).filter(function (r) { return r.amc && !isGuideRow(r.amc); });
 
-    var domesticStocks = sRows.map(function (r) {
+    // 종목·해외 시트에서 운용사명이 비어 있으면, 시장 시트의 단일 운용사명으로 보완
+    var distinct = {};
+    domesticMarket.forEach(function (r) { if (r.amc) distinct[r.amc] = 1; });
+    var dkeys = Object.keys(distinct);
+    var fileAmc = dkeys.length === 1 ? dkeys[0] : '';
+
+    var sAmc = effAmc(sRows, fileAmc);
+    var domesticStocks = sRows.map(function (r, i) {
       return {
-        amc: String(pick(r, ['운용사명', '운용사'])).trim(),
+        amc: sAmc[i],
         stock: String(pick(r, ['종목명', '종목'])).trim(),
         opinion: String(pick(r, ['의견'])).trim(),
         reason: String(pick(r, ['사유', '의견사유'])).trim()
       };
     }).filter(function (r) { return r.amc && r.stock && !isGuideRow(r.amc); });
 
-    var overseas = oRows.map(function (r) {
+    var oAmc = effAmc(oRows, fileAmc);
+    var overseas = oRows.map(function (r, i) {
       return {
-        amc: String(pick(r, ['운용사명', '운용사'])).trim(),
+        amc: oAmc[i],
         asOf: String(pick(r, ['작성일'])).trim(),
         market: String(pick(r, ['시장'])).trim(),
         index: String(pick(r, ['기준지수', '지수'])).trim(),
@@ -507,7 +534,11 @@
         pro: String(pick(r, ['Pro(긍정사유)', 'Pro', '긍정사유', '긍정'])).trim(),
         con: String(pick(r, ['Con(부정사유)', 'Con', '부정사유', '부정'])).trim()
       };
-    }).filter(function (r) { return r.amc && r.market && !isGuideRow(r.amc); });
+    }).filter(function (r) {
+      // 시장명만 미리 채워진(운용사가 작성하지 않은) 빈 행은 제외 — 실제 내용이 있어야 채택
+      var hasContent = r.view || r.targetLow || r.targetHigh || r.pro || r.con;
+      return r.amc && r.market && hasContent && !isGuideRow(r.amc);
+    });
 
     return { domesticMarket: domesticMarket, domesticStocks: domesticStocks, overseas: overseas };
   }
