@@ -9,6 +9,7 @@ import os
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side, Protection
 from openpyxl.worksheet.datavalidation import DataValidation
+from openpyxl.formatting.rule import CellIsRule, FormulaRule
 from openpyxl.comments import Comment
 
 OUT = os.path.join(os.path.dirname(__file__), '..', 'public', 'templates', 'AMC_컨센서스_양식.xlsx')
@@ -27,6 +28,12 @@ EX_FONT = Font(color=GREY, italic=True, size=10)
 GUIDE_TITLE = Font(color=NAVY, bold=True, size=15)
 GUIDE_FONT = Font(color='3A4452', size=11)
 
+# 조건부 서식 색상 (국내 증시 관례: 강세·매수=빨강↑ / 약세·매도=파랑↓ / 중립=회색)
+BULL_FILL = PatternFill('solid', fgColor='FCE4E4'); BULL_FONT = Font(color='C0392B', bold=True, size=10)
+NEUT_FILL = PatternFill('solid', fgColor='ECEEF1'); NEUT_FONT = Font(color='5A6678', size=10)
+BEAR_FILL = PatternFill('solid', fgColor='E4ECFB'); BEAR_FONT = Font(color='1F5FBF', bold=True, size=10)
+WARN_FILL = PatternFill('solid', fgColor='FFD4D4')  # 목표 하단>상단 등 입력 오류 경고
+
 THIN = Side(style='thin', color='D7DEE8')
 BORDER = Border(left=THIN, right=THIN, top=THIN, bottom=THIN)
 CENTER = Alignment(horizontal='center', vertical='center', wrap_text=True)
@@ -37,7 +44,7 @@ wb = Workbook()
 
 
 def build_sheet(ws, title, headers, widths, example, dropdowns, num_cols, input_rows,
-                prefill=None, left_cols=()):
+                prefill=None, left_cols=(), band=None):
     ncol = len(headers)
     last = chr(ord('A') + ncol - 1)
 
@@ -113,6 +120,23 @@ def build_sheet(ws, title, headers, widths, example, dropdowns, num_cols, input_
         ws.add_data_validation(dv)
         dv.add(f'{col_letter}{start}:{col_letter}{start + input_rows - 1}')
 
+    end = start + input_rows - 1
+
+    # 조건부 서식 1 — 방향성/의견 값에 따라 셀 색상(강세·매수=빨강 / 중립=회색 / 약세·매도=파랑)
+    for col_letter, options in dropdowns:
+        if len(options) != 3:
+            continue
+        rng = f'{col_letter}{start}:{col_letter}{end}'
+        for opt, (fl, fo) in zip(options, [(BULL_FILL, BULL_FONT), (NEUT_FILL, NEUT_FONT), (BEAR_FILL, BEAR_FONT)]):
+            ws.conditional_formatting.add(
+                rng, CellIsRule(operator='equal', formula=['"%s"' % opt], fill=fl, font=fo))
+
+    # 조건부 서식 2 — 목표 하단>상단 이면 두 칸을 빨갛게(입력 오류 경고)
+    if band:
+        lo, hi = band
+        f = f'AND(${lo}{start}<>"",${hi}{start}<>"",${hi}{start}<${lo}{start})'
+        ws.conditional_formatting.add(f'{lo}{start}:{hi}{end}', FormulaRule(formula=[f], fill=WARN_FILL))
+
     # 시트 보호 — 입력칸(잠금 해제)만 편집 가능. 암호 없음(검토 탭에서 해제 가능).
     ws.protection.sheet = True
     ws.protection.selectLockedCells = True
@@ -134,10 +158,13 @@ lines = [
     '  2. 각 시트의 옅은 노란색 행은 "작성 예시"입니다(참고용, 수정 불필요).',
     '     실제 입력은 그 아래 흰색 칸에 하시면 됩니다.',
     '  3. 방향성(강세/중립/약세), 의견(매수/중립/매도)은 칸을 클릭하면 나오는 드롭다운에서 선택합니다.',
+    '     선택하면 칸 색이 바뀝니다 — 강세·매수=빨강, 중립=회색, 약세·매도=파랑.',
     '  4. 목표밴드는 지수의 예상 하단~상단을 숫자로 입력합니다(천단위 콤마 자동).',
+    '     상단이 하단보다 작으면 두 칸이 빨갛게 표시되니 값을 확인하세요.',
     '  5. [국내종목]은 운용사가 자유 선정한 Top Pick을 적습니다.',
     '  6. [해외]는 미국/일본/베트남/인도/ACWI/선진국 6개 시장이 미리 채워져 있습니다.',
     '     각 행에 운용사명·작성일·방향성·목표·Pro/Con만 채우시면 됩니다.',
+    '     6개 외 추가 시장은 그 아래 빈 칸에 직접 입력하면 됩니다.',
     '',
     '입력 보호',
     '  · 입력 칸 외에는 잠겨 있어 실수로 양식이 깨지지 않습니다.',
@@ -145,7 +172,8 @@ lines = [
     '',
     '제출',
     '  · 작성 후 파일을 그대로 담당자에게 회신하시면 됩니다(파일명 자유).',
-    '  · 운용사명은 각 시트의 모든 입력 행에 적어 주세요(여러 파일을 한 번에 취합합니다).',
+    '  · 운용사명은 각 시트의 "첫 입력 행"에만 적으면 됩니다. 이어지는 행은 자동으로 같은',
+    '    운용사로 인식됩니다. (한 파일은 한 운용사가 작성하는 것을 기준으로 합니다.)',
 ]
 for i, t in enumerate(lines, start=2):
     cell = guide.cell(row=i, column=1, value=t)
@@ -161,9 +189,11 @@ build_sheet(
     ['(예시) 미래에셋자산운용', '2026-06-20', '강세', 2750, 3050,
      '반도체 업황 회복, 외국인 순매수 전환', '미국 금리 인하 지연, 중국 둔화'],
     dropdowns=[('C', ['강세', '중립', '약세'])],
-    num_cols=[3, 4], input_rows=6, left_cols=(0, 5, 6),
+    num_cols=[3, 4], input_rows=6, left_cols=(0, 5, 6), band=('D', 'E'),
 )
 m['C3'].comment = Comment('강세 / 중립 / 약세 중 선택', 'guide')
+m['B3'].comment = Comment('날짜 형식 예: 2026-06-20', 'guide')
+m['A3'].comment = Comment('운용사명은 이 행(첫 입력칸)에만 적으면 됩니다. 한 운용사가 한 파일을 작성합니다.', 'guide')
 
 # ── 국내종목 ──
 s = wb.create_sheet('국내종목')
@@ -176,6 +206,7 @@ build_sheet(
     num_cols=[], input_rows=30, left_cols=(0, 3),
 )
 s['C3'].comment = Comment('매수 / 중립 / 매도 중 선택', 'guide')
+s['A3'].comment = Comment('운용사명은 첫 종목 행에만 적으면 됩니다. 아래 종목들은 자동으로 같은 운용사로 인식됩니다.', 'guide')
 
 # ── 해외 ── (6개 시장 사전입력)
 o = wb.create_sheet('해외')
@@ -189,9 +220,12 @@ build_sheet(
     ['(예시) 미래에셋자산운용', '2026-06-20', '미국', 'S&P500', '강세', 5400, 6000,
      'AI 투자 사이클 지속', '밸류에이션 부담'],
     dropdowns=[('E', ['강세', '중립', '약세'])],
-    num_cols=[5, 6], input_rows=10, prefill=prefill, left_cols=(0, 7, 8),
+    num_cols=[5, 6], input_rows=10, prefill=prefill, left_cols=(0, 7, 8), band=('F', 'G'),
 )
 o['E3'].comment = Comment('강세 / 중립 / 약세 중 선택', 'guide')
+o['B3'].comment = Comment('날짜 형식 예: 2026-06-20', 'guide')
+o['A3'].comment = Comment('운용사명은 첫 행에만 적으면 됩니다(아래 행 자동 인식).', 'guide')
+o['C11'].comment = Comment('기본 6개 시장 외에 추가할 시장이 있으면 이 아래 빈 칸에 직접 입력하세요.', 'guide')
 
 wb.save(OUT)
 print('saved:', os.path.abspath(OUT))
