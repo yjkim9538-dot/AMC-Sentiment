@@ -1,0 +1,12 @@
+# Netlify 배포 설정 — 정적 프론트(public/) + Functions 2.0(netlify/functions) + Edge(netlify/edge-functions)
+# 비밀값(APP_PASSWORD / AUTH_SECRET / ANTHROPIC_API_KEY / ANTHROPIC_MODEL)은
+# 저장소가 아니라 Netlify 대시보드 → Site settings → Environment variables 에 설정하세요.
+
+[build]
+  publish = "public"
+  command = "echo 'static site — no build step'"
+
+[functions]
+  node_bundler = "esbuild"
+
+# 각 함수의 경로(/api/*)와 엣지 게이트(/*)는 파일 내 `export const config` 로 선언됨.

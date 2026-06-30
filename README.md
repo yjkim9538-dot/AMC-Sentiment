@@ -150,6 +150,39 @@ Cloudflare 대시보드 → **Workers & Pages → D1 → Create** → 이름 `am
 > CLI 배포 대안: `npx wrangler pages deploy public` (먼저 `npx wrangler login`).
 > 비밀값은 `npx wrangler pages secret put APP_PASSWORD` 등으로도 설정 가능.
 
+## 클라우드 상시 배포 (GitHub → Netlify) — 내 PC 없이 항상 접속
+
+Cloudflare 대신 **Netlify**로도 동일하게 운영할 수 있습니다. GitHub에 **push(=변경)하면 Netlify가 자동
+재배포**됩니다. 백엔드는 Netlify Functions(`netlify/functions/`), 데이터는 **Netlify Blobs**(별도 DB 가입
+불필요, 배포가 바뀌어도 데이터 유지), 챗봇은 Functions에서 Anthropic API 호출로 동작합니다.
+무료 `*.netlify.app` 주소가 제공되어 도메인 없이도 어디서든 접속됩니다.
+
+> ⚠️ 이 방식은 데이터가 **Netlify(클라우드)** 에 저장됩니다(사내 PC 아님). 민감 자료이므로 **IT·보안부서
+> 검토·승인**을 받으세요. `APP_PASSWORD`(강한 비밀번호)는 필수입니다.
+> Cloudflare Pages+D1(위) 또는 사내 서버 방식과는 **택일**입니다(같은 데이터를 동시에 쓰지 않음).
+
+### 1) Netlify 사이트 생성 (Git 연결)
+1. **https://app.netlify.com** → GitHub 계정으로 가입/로그인.
+2. **Add new site → Import an existing project → Deploy with GitHub** → 이 저장소(`AMC-Sentiment`) 선택.
+3. 배포 브랜치: `claude/asset-manager-consensus-81j02v` (또는 main 병합 후 `main`).
+4. 빌드 설정(대부분 `netlify.toml` 이 자동 인식):
+   - **Build command**: 비움 / **Publish directory**: `public`
+   - Functions·Edge 는 `netlify/functions/`·`netlify/edge-functions/` 에서 자동 인식.
+
+### 2) 환경변수(비밀값) 설정 — Site configuration → Environment variables
+- `APP_PASSWORD` = 강한 비밀번호(필수)
+- `AUTH_SECRET` = 임의의 긴 문자열(로그인 세션 유지)
+- `ANTHROPIC_API_KEY` = 챗봇용(없으면 챗봇만 비활성, 나머지는 정상)
+- `ANTHROPIC_MODEL` = (선택) 기본 `claude-opus-4-8`
+- 저장 후 **Deploys → Trigger deploy → Deploy site** 로 한 번 재배포.
+
+### 3) 접속 / 운영
+- 발급된 **`https://<사이트이름>.netlify.app`** 으로 폰·태블릿·노트북 어디서든 접속 → 로그인.
+- **업데이트**: 이 저장소에 push 하면 Netlify가 자동 재배포(데이터는 Netlify Blobs에 그대로 유지).
+- 고정 도메인 원하면 **Domain management** 에서 연결(선택).
+
+> CLI 대안: `npm i -g netlify-cli` → `netlify deploy --build --prod`. 로컬 점검은 `npx netlify dev`.
+
 ## 사용 흐름
 
 1. **엑셀 양식 다운로드** (`엑셀 양식` 버튼) → 운용사에 배포.
