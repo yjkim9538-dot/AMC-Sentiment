@@ -53,6 +53,28 @@
   }
   function fmt(n) { return n === null ? '-' : n.toLocaleString('ko-KR'); }
 
+  function pad2(n) { return (n < 10 ? '0' : '') + n; }
+  // 날짜 표기 통일 → 'YYYY-MM-DD'
+  // 엑셀 날짜 셀은 직렬값(예: 46123)으로 읽히므로 날짜로 되돌리고,
+  // '2026.7.6' / '2026/07/06' / '2026년 7월 6일' 같은 표기도 한 형식으로 맞춘다.
+  function fmtDate(v) {
+    if (v === null || v === undefined) return '';
+    var s = String(v).trim();
+    if (!s) return '';
+    if (/^\d+(\.\d+)?$/.test(s)) {
+      var n = Number(s);
+      // 1954~2064년 범위의 직렬값만 날짜로 간주(그 외 숫자는 원문 유지)
+      if (n >= 20000 && n <= 60000) {
+        var d = new Date(Math.round((n - 25569) * 86400000)); // 25569 = 1970-01-01의 엑셀 직렬값
+        return d.getUTCFullYear() + '-' + pad2(d.getUTCMonth() + 1) + '-' + pad2(d.getUTCDate());
+      }
+      return s;
+    }
+    var m = s.match(/^(\d{4})\s*[.\/\-년]\s*(\d{1,2})\s*[.\/\-월]\s*(\d{1,2})/);
+    if (m) return m[1] + '-' + pad2(Number(m[2])) + '-' + pad2(Number(m[3]));
+    return s;
+  }
+
   function uniqueAMCs(data) {
     var seen = {}, out = [];
     data.domesticMarket.concat(data.overseas).forEach(function (r) {
@@ -251,7 +273,7 @@
       html += '<div class="detail-head"><h3>' + esc(current) + '</h3>' +
         badge(m.view, viewClass(m.view)) +
         '<span class="band">KOSPI ' + fmt(m.targetLow) + ' ~ ' + fmt(m.targetHigh) + '</span>' +
-        '<span class="muted">작성일 ' + esc(m.asOf) + '</span></div>';
+        (m.asOf ? '<span class="muted">작성일 ' + esc(fmtDate(m.asOf)) + '</span>' : '') + '</div>';
       html += '<div class="procon">' +
         '<div class="procon-box pro"><div class="pc-label">Pro · 긍정 사유</div><div class="pc-text">' + esc(m.pro) + '</div></div>' +
         '<div class="procon-box con"><div class="pc-label">Con · 부정 사유</div><div class="pc-text">' + esc(m.con) + '</div></div>' +
@@ -277,7 +299,9 @@
   }
 
   // ---------- 뷰 3: 해외 통합 ----------
-  function renderOverseasOverview() {
+  // 국내 통합과 같은 양식(전망 요약 카드 → 긍정/부정 종합 → 운용사별 표)을
+  // 시장 선택 칩으로 시장별로 보여주고, 하단에 전체 매트릭스를 유지한다.
+  function renderOverseasOverview(selectedMarket) {
     var host = el('overseas-overview');
     var rows = state.overseas;
     if (!rows.length) { host.innerHTML = '<div class="empty">해외 데이터가 없습니다.</div>'; return; }
@@ -290,39 +314,86 @@
     // 데이터에만 있는 기타 시장도 포함
     rows.forEach(function (r) { if (r.market && markets.indexOf(r.market) < 0) markets.push(r.market); });
 
+    var current = selectedMarket && markets.indexOf(selectedMarket) >= 0 ? selectedMarket : markets[0];
+    var mkt = rows.filter(function (r) { return r.market === current; });
+    var counts = countViews(mkt);
+    var band = avgBand(mkt);
+    var indexName = '';
+    mkt.forEach(function (r) { if (!indexName && r.index) indexName = r.index; });
+
+    var html = '<div class="market-chips">' + markets.map(function (mk) {
+      return '<button type="button" class="market-chip' + (mk === current ? ' is-active' : '') +
+        '" data-market="' + esc(mk) + '">' + esc(mk) + '</button>';
+    }).join('') + '</div>';
+
+    html += '<div class="section-title">' + esc(current) + ' 증시 전망 요약' +
+      (indexName ? ' <span class="muted">· ' + esc(indexName) + '</span>' : '') + '</div>';
+    html += '<div class="card-row">';
+    html += '<div class="card summary-card"><div class="label">응답 운용사</div><div class="value">' + mkt.length + '<small> 곳</small></div></div>';
+    html += '<div class="card summary-card"><div class="label">' + esc(indexName || '지수') + ' 목표밴드 평균</div><div class="value">' +
+      fmt(band.low) + '<small> ~ ' + fmt(band.high) + '</small></div></div>';
+    html += '<div class="card summary-card" style="flex:2 1 320px"><div class="label">방향성 분포</div>' +
+      distBar(counts, VIEW_KEYS, viewClass) + '</div>';
+    html += '</div>';
+
+    // 운용사 의견 종합 (긍정 / 부정)
+    html += '<div class="section-title">운용사 의견 종합 — 긍정 · 부정</div>';
+    html += '<div class="procon">' +
+      '<div class="procon-box pro"><div class="pc-label">긍정 요인 (Pro) · ' +
+      countWithReason(mkt, 'pro') + '개사</div>' + summaryList(mkt, 'pro') + '</div>' +
+      '<div class="procon-box con"><div class="pc-label">부정 요인 (Con) · ' +
+      countWithReason(mkt, 'con') + '개사</div>' + summaryList(mkt, 'con') + '</div>' +
+      '</div>';
+
+    // 운용사별 비교 표
+    html += '<div class="section-title">운용사별 시장 전망</div>';
+    html += '<div class="table-wrap"><table><thead><tr>' +
+      '<th>운용사</th><th>방향성</th><th>목표밴드</th><th>Pro (긍정)</th><th>Con (부정)</th>' +
+      '</tr></thead><tbody>';
+    mkt.forEach(function (r) {
+      html += '<tr class="clickable" data-amc="' + esc(r.amc) + '">' +
+        '<td><strong>' + esc(r.amc) + '</strong></td>' +
+        '<td>' + badge(r.view, viewClass(r.view)) + '</td>' +
+        '<td class="cell-num">' + fmt(r.targetLow) + ' ~ ' + fmt(r.targetHigh) + '</td>' +
+        '<td class="cell-reason">' + esc(r.pro) + '</td>' +
+        '<td class="cell-reason">' + esc(r.con) + '</td>' +
+        '</tr>';
+    });
+    html += '</tbody></table></div>';
+
+    // 전체 시장 한눈 요약 매트릭스
     var lookup = {};
     rows.forEach(function (r) { lookup[r.amc + '||' + r.market] = r; });
-
-    var html = '<div class="section-title">시장 × 운용사 방향성 매트릭스</div>';
-    html += '<div class="muted" style="margin-bottom:10px">행(시장)을 클릭하면 운용사별 Pro/Con 상세가 펼쳐집니다.</div>';
+    html += '<div class="section-title">전체 시장 × 운용사 방향성 매트릭스</div>';
+    html += '<div class="muted" style="margin-bottom:10px">시장 행을 클릭하면 위 요약이 해당 시장으로 전환됩니다.</div>';
     html += '<div class="table-wrap"><table class="matrix"><thead><tr><th class="market-col">시장</th>';
     amcs.forEach(function (a) { html += '<th>' + esc(a) + '</th>'; });
     html += '<th>방향성 분포</th></tr></thead><tbody>';
-
-    markets.forEach(function (mk, i) {
+    markets.forEach(function (mk) {
       var marketRows = rows.filter(function (r) { return r.market === mk; });
-      var counts = countViews(marketRows);
-      html += '<tr class="clickable" data-expand="ov-' + i + '"><td class="market-name">' + esc(mk) + '</td>';
+      var c = countViews(marketRows);
+      html += '<tr class="clickable" data-market-row="' + esc(mk) + '"><td class="market-name">' + esc(mk) + '</td>';
       amcs.forEach(function (a) {
         var r = lookup[a + '||' + mk];
         html += '<td>' + (r ? badge(r.view, viewClass(r.view)) : '<span class="muted">-</span>') + '</td>';
       });
-      html += '<td style="min-width:200px">' + distBar(counts, VIEW_KEYS, viewClass) + '</td></tr>';
-
-      var items = marketRows.map(function (r) {
-        return '<li><span class="el-amc">' + esc(r.amc) + '</span>' + badge(r.view, viewClass(r.view)) +
-          ' <span class="muted">목표 ' + fmt(r.targetLow) + '~' + fmt(r.targetHigh) +
-          (r.index ? ' · ' + esc(r.index) : '') + '</span>' +
-          '<div class="sp-reason" style="margin-top:4px"><strong style="color:var(--bull)">Pro</strong> ' + esc(r.pro) +
-          ' &nbsp; <strong style="color:var(--bear)">Con</strong> ' + esc(r.con) + '</div></li>';
-      }).join('');
-      html += '<tr class="expand-row" id="ov-' + i + '" style="display:none"><td colspan="' + (amcs.length + 2) +
-        '"><ul class="expand-list">' + items + '</ul></td></tr>';
+      html += '<td style="min-width:200px">' + distBar(c, VIEW_KEYS, viewClass) + '</td></tr>';
     });
     html += '</tbody></table></div>';
 
     host.innerHTML = html;
-    bindStockExpand(host);
+    host.querySelectorAll('.market-chip').forEach(function (b) {
+      b.addEventListener('click', function () { renderOverseasOverview(b.getAttribute('data-market')); });
+    });
+    host.querySelectorAll('tr.clickable[data-amc]').forEach(function (tr) {
+      tr.addEventListener('click', function () { goToAMC('overseas-amc', tr.getAttribute('data-amc')); });
+    });
+    host.querySelectorAll('tr.clickable[data-market-row]').forEach(function (tr) {
+      tr.addEventListener('click', function () {
+        renderOverseasOverview(tr.getAttribute('data-market-row'));
+        host.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+    });
   }
 
   // ---------- 뷰 4: 해외 운용사별 ----------
@@ -496,7 +567,7 @@
     var domesticMarket = mRows.map(function (r, i) {
       return {
         amc: mAmc[i],
-        asOf: String(pick(r, ['작성일'])).trim(),
+        asOf: fmtDate(pick(r, ['작성일'])),
         view: String(pick(r, ['방향성', '전망'])).trim(),
         targetLow: num(pick(r, ['KOSPI목표_하단', '목표_하단', '하단'])),
         targetHigh: num(pick(r, ['KOSPI목표_상단', '목표_상단', '상단'])),
@@ -525,7 +596,7 @@
     var overseas = oRows.map(function (r, i) {
       return {
         amc: oAmc[i],
-        asOf: String(pick(r, ['작성일'])).trim(),
+        asOf: fmtDate(pick(r, ['작성일'])),
         market: String(pick(r, ['시장'])).trim(),
         index: String(pick(r, ['기준지수', '지수'])).trim(),
         view: String(pick(r, ['방향성', '전망'])).trim(),
