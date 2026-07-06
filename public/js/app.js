@@ -13,6 +13,9 @@
   // 시트 이름(엑셀)
   var SHEET = { market: '국내시장', stock: '국내종목', overseas: '해외' };
 
+  // 전체 종합(운용사별 최신) 특수 회차값 — 백엔드 getConsensus 와 약속된 토큰
+  var ALL_PERIODS = '__all__';
+
   var state = null;          // 현재 표시 중인 정규화 데이터
   var backend = false;       // 백엔드(서버) 사용 가능 여부
   var chatEnabled = false;   // AI 챗봇(ANTHROPIC_API_KEY) 가용 여부
@@ -132,6 +135,12 @@
 
   function badge(text, cls) { return '<span class="badge ' + cls + '">' + esc(text) + '</span>'; }
 
+  // 전체 종합 화면에서 각 의견이 어느 회차 데이터인지 표시
+  function periodTag(r) {
+    if (!state.meta || !state.meta.combined || !r.period) return '';
+    return '<span class="row-period">' + esc(r.period) + '</span>';
+  }
+
   // 전 운용사의 Pro/Con 의견을 모아 운용사명과 함께 목록화
   function summaryList(rows, key) {
     var items = rows.filter(function (r) { return r[key]; }).map(function (r) {
@@ -181,7 +190,7 @@
       '</tr></thead><tbody>';
     mkt.forEach(function (r) {
       html += '<tr class="clickable" data-amc="' + esc(r.amc) + '">' +
-        '<td><strong>' + esc(r.amc) + '</strong></td>' +
+        '<td><strong>' + esc(r.amc) + '</strong>' + periodTag(r) + '</td>' +
         '<td>' + badge(r.view, viewClass(r.view)) + '</td>' +
         '<td class="cell-num">' + fmt(r.targetLow) + ' ~ ' + fmt(r.targetHigh) + '</td>' +
         '<td class="cell-reason">' + esc(r.pro) + '</td>' +
@@ -235,7 +244,7 @@
         '</tr>';
       var items = g.rows.map(function (r) {
         return '<li><span class="el-amc">' + esc(r.amc) + '</span>' +
-          badge(r.opinion, opinionClass(r.opinion)) +
+          badge(r.opinion, opinionClass(r.opinion)) + periodTag(r) +
           ' <span class="sp-reason">' + esc(r.reason) + '</span></li>';
       }).join('');
       html += '<tr class="expand-row" id="stk-' + i + '" style="display:none"><td colspan="4">' +
@@ -273,7 +282,9 @@
       html += '<div class="detail-head"><h3>' + esc(current) + '</h3>' +
         badge(m.view, viewClass(m.view)) +
         '<span class="band">KOSPI ' + fmt(m.targetLow) + ' ~ ' + fmt(m.targetHigh) + '</span>' +
-        (m.asOf ? '<span class="muted">작성일 ' + esc(fmtDate(m.asOf)) + '</span>' : '') + '</div>';
+        (m.asOf ? '<span class="muted">작성일 ' + esc(fmtDate(m.asOf)) + '</span>' : '') +
+        (state.meta && state.meta.combined && m.period ? '<span class="muted">회차 ' + esc(m.period) + '</span>' : '') +
+        '</div>';
       html += '<div class="procon">' +
         '<div class="procon-box pro"><div class="pc-label">Pro · 긍정 사유</div><div class="pc-text">' + esc(m.pro) + '</div></div>' +
         '<div class="procon-box con"><div class="pc-label">Con · 부정 사유</div><div class="pc-text">' + esc(m.con) + '</div></div>' +
@@ -352,7 +363,7 @@
       '</tr></thead><tbody>';
     mkt.forEach(function (r) {
       html += '<tr class="clickable" data-amc="' + esc(r.amc) + '">' +
-        '<td><strong>' + esc(r.amc) + '</strong></td>' +
+        '<td><strong>' + esc(r.amc) + '</strong>' + periodTag(r) + '</td>' +
         '<td>' + badge(r.view, viewClass(r.view)) + '</td>' +
         '<td class="cell-num">' + fmt(r.targetLow) + ' ~ ' + fmt(r.targetHigh) + '</td>' +
         '<td class="cell-reason">' + esc(r.pro) + '</td>' +
@@ -746,18 +757,24 @@
         renderAll();
         return;
       }
-      currentPeriod = selectPeriod && periods.some(function (p) { return p.period === selectPeriod; })
-        ? selectPeriod : periods[0].period;
-      sel.innerHTML = periods.map(function (p) {
-        return '<option value="' + esc(p.period) + '"' + (p.period === currentPeriod ? ' selected' : '') +
-          '>' + esc(p.period) + ' (' + p.amcCount + '개사)</option>';
-      }).join('');
+      // 기본은 '전체 종합(운용사별 최신)'. 업로드 직후에는 해당 회차를 선택.
+      currentPeriod = selectPeriod && (selectPeriod === ALL_PERIODS ||
+        periods.some(function (p) { return p.period === selectPeriod; }))
+        ? selectPeriod : ALL_PERIODS;
+      sel.innerHTML = '<option value="' + ALL_PERIODS + '"' +
+        (currentPeriod === ALL_PERIODS ? ' selected' : '') + '>전체 종합 (운용사별 최신)</option>' +
+        periods.map(function (p) {
+          return '<option value="' + esc(p.period) + '"' + (p.period === currentPeriod ? ' selected' : '') +
+            '>' + esc(p.period) + ' (' + p.amcCount + '개사)</option>';
+        }).join('');
       return loadConsensus(currentPeriod);
     });
   }
   function loadConsensus(period) {
     return api('/api/consensus?period=' + encodeURIComponent(period)).then(function (res) {
-      res.meta = { source: '회차: ' + period, asOf: period };
+      res.meta = period === ALL_PERIODS
+        ? { source: '전체 종합 · 운용사별 최신 제출만 반영', asOf: '', combined: true }
+        : { source: '회차: ' + period, asOf: period };
       state = res;
       renderAll();
     });
