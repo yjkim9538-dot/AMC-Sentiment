@@ -138,8 +138,20 @@ body {
 .badge.neutral { background: var(--neutral-soft); color: var(--neutral); }
 .badge.bear { background: var(--bear-soft); color: var(--bear); }
 
+/* ---------- Market chips (해외 통합 시장 선택) ---------- */
+.market-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 4px; }
+.market-chip {
+  font-size: 13px; font-weight: 600;
+  padding: 7px 14px; border-radius: 18px; cursor: pointer;
+  background: var(--white); color: var(--gray-text);
+  border: 1px solid var(--gray-line);
+  transition: all 0.15s ease;
+}
+.market-chip:hover { border-color: var(--navy-soft); color: var(--navy); }
+.market-chip.is-active { background: var(--navy); border-color: var(--navy); color: #fff; }
+
 /* ---------- Tables ---------- */
-.table-wrap { background: var(--white); border-radius: var(--radius); box-shadow: var(--shadow); overflow: auto; }
+.table-wrap { background: var(--white); border-radius: var(--radius); box-shadow: var(--shadow); overflow: auto; -webkit-overflow-scrolling: touch; }
 table { width: 100%; border-collapse: collapse; font-size: 13px; }
 th, td { padding: 12px 14px; text-align: left; vertical-align: top; border-bottom: 1px solid var(--gray-line); }
 th { background: #f7f9fc; color: var(--navy); font-weight: 700; font-size: 12px; position: sticky; top: 0; }
@@ -273,3 +285,49 @@ code { background: rgba(0,0,0,0.06); padding: 1px 5px; border-radius: 4px; font-
 .amc-chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .amc-chip { font-size: 12px; background: var(--neutral-soft); color: var(--ink); padding: 4px 10px; border-radius: 14px; }
 .modal-foot { padding: 12px 18px; border-top: 1px solid var(--gray-line); text-align: right; }
+
+/* ---------- Mobile (반응형) ---------- */
+@media (max-width: 768px) {
+  .app-header { padding: 14px 16px 0; }
+  .title-block h1 { font-size: 18px; }
+  .subtitle { font-size: 12px; }
+  .header-actions { width: 100%; gap: 8px; }
+  .period-box { flex: 1 1 100%; }
+  .period-box select { flex: 1; min-width: 0; }
+  .btn { flex: 1 1 auto; text-align: center; padding: 9px 12px; }
+  .source-bar { flex-wrap: wrap; gap: 8px; padding: 12px 0 14px; }
+
+  .tabs { padding: 0 8px; }
+  .tab { padding: 12px 13px; font-size: 13px; }
+
+  .content { padding: 16px 12px 40px; }
+  .section-title { font-size: 15px; margin: 22px 0 10px; }
+  .card { padding: 14px 16px; }
+  .card-row { gap: 10px; }
+  .summary-card { flex: 1 1 100%; min-width: 0; }
+  .summary-card .value { font-size: 22px; }
+
+  /* 표는 찌그러뜨리지 않고 가로 스크롤로 처리 */
+  table { min-width: 560px; }
+  th, td { padding: 10px 10px; }
+  .cell-reason { min-width: 180px; max-width: 260px; }
+
+  .selector-row select { flex: 1; min-width: 0; }
+  select { min-width: 0; }
+  .market-grid { grid-template-columns: 1fr; }
+  .stock-pick { flex-wrap: wrap; gap: 8px; }
+  .stock-pick .sp-name { min-width: 0; }
+  .detail-head { gap: 8px; }
+  .dist-legend { flex-wrap: wrap; gap: 6px 12px; }
+  .procon { gap: 10px; }
+  .procon-box { flex: 1 1 100%; }
+
+  .chat-drawer { width: 100%; max-width: 100vw; }
+  .toast { width: calc(100% - 32px); text-align: center; }
+}
+
+@media (max-width: 420px) {
+  .title-block h1 { font-size: 16px; }
+  .btn { font-size: 12px; padding: 8px 10px; }
+  .tab { padding: 11px 10px; font-size: 12.5px; }
+}
