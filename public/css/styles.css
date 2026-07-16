@@ -157,6 +157,16 @@ button:focus-visible, select:focus-visible, a:focus-visible, textarea:focus-visi
 .market-chip:hover { border-color: var(--navy-soft); color: var(--navy); }
 .market-chip.is-active { background: var(--navy); border-color: var(--navy); color: #fff; }
 
+/* 전체 종합 화면에서 의견의 출처 회차 표시 */
+.row-period {
+  display: inline-block;
+  font-size: 11px; font-weight: 600; color: var(--gray-text);
+  background: var(--neutral-soft); border-radius: 10px;
+  padding: 1px 8px; margin-left: 6px; white-space: nowrap;
+  vertical-align: middle;
+}
+td .row-period { display: block; width: fit-content; margin: 3px 0 0; }
+
 /* ---------- Tables ---------- */
 .table-wrap { background: var(--white); border-radius: var(--radius); box-shadow: var(--shadow); overflow: auto; -webkit-overflow-scrolling: touch; }
 table { width: 100%; border-collapse: collapse; font-size: 13.5px; }

@@ -83,23 +83,36 @@ export function listPeriods() {
 }
 
 // 한 회차의 통합 컨센서스(운용사별 최신 제출만)
+// 운용사별 전체 기간 최신 행(회차 무관)
+const LATEST_PER_AMC = `SELECT MAX(id) AS id FROM submissions GROUP BY amc`;
+
+// period === '__all__' 이면 전체 기간 종합 — 같은 운용사는 가장 최근 제출만 반영.
 export function getConsensus(period) {
-  const rows = db
-    .prepare(`
-      SELECT amc, data, created_at FROM submissions
-      WHERE period = ? AND id IN (${LATEST_IDS})
-      ORDER BY amc
-    `)
-    .all(period);
+  const rows =
+    period === '__all__'
+      ? db
+          .prepare(`
+            SELECT period, amc, data, created_at FROM submissions
+            WHERE id IN (${LATEST_PER_AMC})
+            ORDER BY amc
+          `)
+          .all()
+      : db
+          .prepare(`
+            SELECT period, amc, data, created_at FROM submissions
+            WHERE period = ? AND id IN (${LATEST_IDS})
+            ORDER BY amc
+          `)
+          .all(period);
 
   const domesticMarket = [];
   const domesticStocks = [];
   const overseas = [];
   for (const row of rows) {
     const d = JSON.parse(row.data);
-    if (d.domesticMarket) domesticMarket.push({ amc: row.amc, ...d.domesticMarket });
-    for (const s of d.domesticStocks || []) domesticStocks.push({ amc: row.amc, ...s });
-    for (const o of d.overseas || []) overseas.push({ amc: row.amc, ...o });
+    if (d.domesticMarket) domesticMarket.push({ amc: row.amc, period: row.period, ...d.domesticMarket });
+    for (const s of d.domesticStocks || []) domesticStocks.push({ amc: row.amc, period: row.period, ...s });
+    for (const o of d.overseas || []) overseas.push({ amc: row.amc, period: row.period, ...o });
   }
   return { period, domesticMarket, domesticStocks, overseas };
 }
