@@ -4,7 +4,7 @@
   --navy-soft: #25406b;
   --gray-bg: #f4f6f9;
   --gray-line: #e2e7ee;
-  --gray-text: #5a6678;
+  --gray-text: #49566c; /* 본문 보조 텍스트 — 흰 배경에서 WCAG AA 대비 확보 */
   --ink: #1f2733;
   --white: #ffffff;
 
@@ -28,7 +28,14 @@ body {
     "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
   color: var(--ink);
   background: var(--gray-bg);
-  line-height: 1.5;
+  line-height: 1.55;
+  word-break: keep-all; /* 한글 단어 중간 줄바꿈 방지 */
+}
+
+/* 키보드 사용자용 포커스 표시 */
+button:focus-visible, select:focus-visible, a:focus-visible, textarea:focus-visible, input:focus-visible {
+  outline: 2px solid #4f86f7;
+  outline-offset: 2px;
 }
 
 /* ---------- Header ---------- */
@@ -98,7 +105,7 @@ body {
 .view { display: none; }
 .view.is-active { display: block; }
 
-.section-title { font-size: 16px; font-weight: 700; margin: 28px 0 12px; color: var(--navy); }
+.section-title { font-size: 17px; font-weight: 700; margin: 30px 0 12px; color: var(--navy); }
 .section-title:first-child { margin-top: 4px; }
 .muted { color: var(--gray-text); font-size: 13px; }
 
@@ -111,8 +118,8 @@ body {
   padding: 18px 20px;
 }
 .summary-card { flex: 1 1 220px; min-width: 200px; }
-.summary-card .label { font-size: 12px; color: var(--gray-text); font-weight: 600; }
-.summary-card .value { font-size: 26px; font-weight: 700; margin-top: 6px; color: var(--navy); }
+.summary-card .label { font-size: 12.5px; color: var(--gray-text); font-weight: 600; }
+.summary-card .value { font-size: 26px; font-weight: 700; margin-top: 6px; color: var(--navy); font-variant-numeric: tabular-nums; }
 .summary-card .value small { font-size: 14px; color: var(--gray-text); font-weight: 500; }
 
 /* ---------- Distribution bar ---------- */
@@ -121,7 +128,7 @@ body {
 .dist-seg.bull { background: var(--bull); }
 .dist-seg.neutral { background: var(--neutral); }
 .dist-seg.bear { background: var(--bear); }
-.dist-legend { display: flex; gap: 14px; margin-top: 8px; font-size: 12px; color: var(--gray-text); }
+.dist-legend { display: flex; gap: 14px; margin-top: 8px; font-size: 12.5px; color: var(--gray-text); }
 .dist-legend span::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: middle; }
 .dist-legend .lg-bull::before { background: var(--bull); }
 .dist-legend .lg-neutral::before { background: var(--neutral); }
@@ -130,8 +137,8 @@ body {
 /* ---------- Badges ---------- */
 .badge {
   display: inline-block;
-  font-size: 12px; font-weight: 700;
-  padding: 3px 10px; border-radius: 20px;
+  font-size: 12.5px; font-weight: 700;
+  padding: 4px 11px; border-radius: 20px;
   white-space: nowrap;
 }
 .badge.bull { background: var(--bull-soft); color: var(--bull); }
@@ -152,13 +159,13 @@ body {
 
 /* ---------- Tables ---------- */
 .table-wrap { background: var(--white); border-radius: var(--radius); box-shadow: var(--shadow); overflow: auto; -webkit-overflow-scrolling: touch; }
-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 th, td { padding: 12px 14px; text-align: left; vertical-align: top; border-bottom: 1px solid var(--gray-line); }
-th { background: #f7f9fc; color: var(--navy); font-weight: 700; font-size: 12px; position: sticky; top: 0; }
+th { background: #f7f9fc; color: var(--navy); font-weight: 700; font-size: 12.5px; letter-spacing: 0.02em; position: sticky; top: 0; z-index: 1; }
 tbody tr:last-child td { border-bottom: none; }
 tr.clickable { cursor: pointer; }
-tr.clickable:hover { background: #f7faff; }
-.cell-reason { color: var(--gray-text); font-size: 12.5px; max-width: 360px; }
+tr.clickable:hover { background: #f2f7ff; }
+.cell-reason { color: var(--gray-text); font-size: 13px; line-height: 1.6; max-width: 360px; }
 .cell-center { text-align: center; }
 .cell-num { text-align: right; font-variant-numeric: tabular-nums; }
 
@@ -177,7 +184,7 @@ select {
 
 .detail-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 8px; }
 .detail-head h3 { margin: 0; font-size: 18px; color: var(--navy); }
-.band { font-size: 14px; color: var(--gray-text); font-weight: 600; }
+.band { font-size: 14px; color: var(--gray-text); font-weight: 600; font-variant-numeric: tabular-nums; }
 
 .procon { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 8px; }
 .procon-box { flex: 1 1 280px; padding: 14px 16px; border-radius: 10px; }
@@ -186,9 +193,9 @@ select {
 .procon-box .pc-label { font-size: 12px; font-weight: 700; margin-bottom: 6px; }
 .procon-box.pro .pc-label { color: var(--bull); }
 .procon-box.con .pc-label { color: var(--bear); }
-.procon-box .pc-text { font-size: 13px; color: var(--ink); }
+.procon-box .pc-text { font-size: 13.5px; line-height: 1.6; color: var(--ink); }
 .summary-list { margin: 0; padding: 0; list-style: none; }
-.summary-list li { font-size: 13px; padding: 8px 0; border-top: 1px dashed rgba(31, 39, 51, 0.12); display: flex; gap: 8px; }
+.summary-list li { font-size: 13.5px; line-height: 1.6; padding: 9px 0; border-top: 1px dashed rgba(31, 39, 51, 0.12); display: flex; gap: 8px; }
 .summary-list li:first-child { border-top: none; padding-top: 2px; }
 .summary-list .sl-amc { font-weight: 700; white-space: nowrap; flex: 0 0 auto; }
 .summary-list .sl-text { color: var(--ink); }
@@ -198,17 +205,17 @@ select {
 .market-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; }
 .market-card .mc-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
 .market-card .mc-title { font-size: 15px; font-weight: 700; color: var(--navy); }
-.market-card .mc-index { font-size: 12px; color: var(--gray-text); }
+.market-card .mc-index { font-size: 12.5px; color: var(--gray-text); }
 
 /* ---------- Stock opinion ---------- */
 .stock-pick { display: flex; align-items: flex-start; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--gray-line); }
 .stock-pick:last-child { border-bottom: none; }
 .stock-pick .sp-name { font-weight: 700; min-width: 120px; }
-.stock-pick .sp-reason { font-size: 12.5px; color: var(--gray-text); }
+.stock-pick .sp-reason { font-size: 13px; line-height: 1.6; color: var(--gray-text); }
 
 .expand-row td { background: #fbfcfe; padding-top: 0; }
 .expand-list { margin: 0; padding: 6px 0 10px; }
-.expand-list li { list-style: none; padding: 6px 0; border-top: 1px dashed var(--gray-line); font-size: 12.5px; }
+.expand-list li { list-style: none; padding: 7px 0; border-top: 1px dashed var(--gray-line); font-size: 13px; line-height: 1.6; }
 .expand-list li:first-child { border-top: none; }
 .expand-list .el-amc { font-weight: 700; color: var(--navy); margin-right: 8px; }
 
@@ -252,7 +259,7 @@ code { background: rgba(0,0,0,0.06); padding: 1px 5px; border-radius: 4px; font-
 }
 .chat-close { background: none; border: none; color: #fff; font-size: 22px; cursor: pointer; line-height: 1; }
 .chat-messages { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 10px; background: var(--gray-bg); }
-.chat-msg { max-width: 85%; padding: 10px 13px; border-radius: 12px; font-size: 13px; line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
+.chat-msg { max-width: 85%; padding: 10px 13px; border-radius: 12px; font-size: 13.5px; line-height: 1.55; white-space: pre-wrap; word-break: break-word; }
 .chat-msg.user { align-self: flex-end; background: #4f86f7; color: #fff; border-bottom-right-radius: 4px; }
 .chat-msg.bot { align-self: flex-start; background: #fff; color: var(--ink); border: 1px solid var(--gray-line); border-bottom-left-radius: 4px; }
 .chat-msg.pending { color: var(--gray-text); font-style: italic; }
@@ -291,7 +298,7 @@ code { background: rgba(0,0,0,0.06); padding: 1px 5px; border-radius: 4px; font-
   .app-header { padding: 14px 16px 0; }
   .title-block h1 { font-size: 18px; }
   .subtitle { font-size: 12px; }
-  .header-actions { width: 100%; gap: 8px; }
+  .header-actions { width: 100%; gap: 8px; flex-wrap: wrap; }
   .period-box { flex: 1 1 100%; }
   .period-box select { flex: 1; min-width: 0; }
   .btn { flex: 1 1 auto; text-align: center; padding: 9px 12px; }
