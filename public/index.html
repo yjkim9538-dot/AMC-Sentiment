@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>AMC 증시 컨센서스 대시보드 | 군인공제회 증권운용1팀</title>
-  <link rel="stylesheet" href="css/styles.css?v=20260721" />
+  <link rel="stylesheet" href="css/styles.css?v=20260721b" />
 </head>
 <body>
   <header class="app-header">
@@ -37,6 +37,7 @@
     <button class="tab" data-tab="overseas-overview" role="tab">해외 통합</button>
     <button class="tab" data-tab="overseas-amc" role="tab">해외 운용사별</button>
     <button class="tab" data-tab="trend" role="tab">회차 추이</button>
+    <button class="tab" data-tab="admin" role="tab">제출 관리</button>
   </nav>
 
   <main class="content">
@@ -45,6 +46,7 @@
     <section id="overseas-overview" class="view"></section>
     <section id="overseas-amc" class="view"></section>
     <section id="trend" class="view"></section>
+    <section id="admin" class="view"></section>
   </main>
 
   <!-- AI 챗봇 드로어 -->
@@ -70,6 +72,7 @@
 
   <script src="lib/xlsx.full.min.js"></script>
   <script src="js/sample-data.js?v=20260706b"></script>
-  <script src="js/app.js?v=20260706b"></script>
+  <script src="js/xlsx-parse.js?v=20260721"></script>
+  <script src="js/app.js?v=20260721"></script>
 </body>
 </html>
