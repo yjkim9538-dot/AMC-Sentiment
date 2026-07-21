@@ -12,7 +12,8 @@ export default async (request, context) => {
   const path = new URL(request.url).pathname;
 
   // 운용사 비밀 업로드 링크 → 업로드 페이지로 리라이트(토큰은 페이지 JS 가 경로에서 읽음)
-  if (path.startsWith('/u/')) return context.rewrite('/upload.html');
+  // URL 반환 = 같은 사이트 내 리라이트(200) — Netlify Edge Functions 표준 문법
+  if (path.startsWith('/u/')) return new URL('/upload.html', request.url);
 
   if (OPEN_PATHS.includes(path) || OPEN_PREFIXES.some((p) => path.startsWith(p))) return;
 
