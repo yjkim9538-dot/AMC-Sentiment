@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>컨센서스 제출 | 군인공제회 증권운용1팀</title>
+  <link rel="stylesheet" href="/css/styles.css?v=20260722" />
+</head>
+<body>
+  <header class="app-header">
+    <div class="header-inner">
+      <div class="title-block">
+        <h1>증시 컨센서스 제출</h1>
+        <p class="subtitle">군인공제회 증권운용1팀 · 위탁운용사(AMC) 컨센서스</p>
+      </div>
+    </div>
+    <div class="source-bar">
+      <span id="portal-amc" class="source-pill">확인 중…</span>
+      <span id="portal-period" class="source-meta"></span>
+    </div>
+  </header>
+
+  <main class="content portal-content">
+    <!-- 링크 오류 -->
+    <section id="portal-error" class="view">
+      <div class="empty" id="portal-error-msg">링크를 확인하는 중입니다…</div>
+    </section>
+
+    <!-- 정상 화면 -->
+    <section id="portal-main" class="view">
+      <div class="section-title">파일 제출</div>
+      <div class="card">
+        <p class="muted" style="margin:0 0 14px">
+          아래 엑셀 양식을 내려받아 작성한 뒤 업로드해 주세요.
+          같은 회차에 다시 업로드하면 <strong>수정 제출</strong>로 처리되어 최신 내용만 반영됩니다(이전 내용은 이력으로 보존).
+        </p>
+        <div class="portal-actions">
+          <a class="btn btn-plain" href="/templates/AMC_컨센서스_양식.xlsx" download>엑셀 양식 다운로드</a>
+          <label for="portal-file" class="btn btn-primary">엑셀 파일 업로드</label>
+          <input id="portal-file" type="file" accept=".xlsx,.xls" hidden />
+        </div>
+        <div id="portal-uploading" class="muted" style="margin-top:12px" hidden>업로드 중…</div>
+      </div>
+
+      <div class="section-title">내 제출 이력</div>
+      <div id="portal-history"></div>
+    </section>
+  </main>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <footer class="app-footer">
+    <span>이 페이지는 귀사 전용 링크입니다. 링크를 외부에 공유하지 마세요.</span>
+  </footer>
+
+  <script src="/lib/xlsx.full.min.js"></script>
+  <script src="/js/xlsx-parse.js?v=20260721"></script>
+  <script src="/js/portal.js?v=20260721"></script>
+</body>
+</html>

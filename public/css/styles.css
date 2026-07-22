@@ -306,6 +306,45 @@ code { background: rgba(0,0,0,0.06); padding: 1px 5px; border-radius: 4px; font-
 .amc-chip { font-size: 12px; background: var(--neutral-soft); color: var(--ink); padding: 4px 10px; border-radius: 14px; }
 .modal-foot { padding: 12px 18px; border-top: 1px solid var(--gray-line); text-align: right; }
 
+/* ---------- 제출 관리(관리자) · 운용사 업로드 포털 ---------- */
+.badge.ok { background: #e7f6ee; color: #1e8e4e; }
+.badge.warn { background: #fdf3e2; color: #b26a00; }
+.badge.off { background: #f0f2f5; color: #98a2b3; }
+
+.adm-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.adm-input {
+  flex: 1 1 260px; min-width: 0;
+  font-size: 14px; padding: 9px 12px; border-radius: 8px;
+  border: 1px solid var(--gray-line); background: #fff; color: var(--ink);
+}
+.btn-mini { font-size: 12px; padding: 6px 10px; }
+.btn-plain { background: #eef1f5; color: var(--navy); }
+.btn-plain:hover { background: #e2e7ee; }
+.btn-danger { background: #fdecec; color: #b3271e; }
+.btn-danger:hover { background: #f8dcdc; }
+.adm-acts { white-space: nowrap; }
+.adm-acts .btn { margin: 2px 2px; }
+.link-code {
+  display: inline-block; max-width: 340px; overflow: hidden;
+  text-overflow: ellipsis; white-space: nowrap; vertical-align: middle;
+  background: rgba(0, 0, 0, 0.05); padding: 3px 8px; border-radius: 6px; font-size: 12px;
+}
+.amc-chip-btn { border: 1px dashed #b9c5dc; cursor: pointer; background: #fff; }
+.amc-chip-btn:hover { border-color: var(--navy-soft); color: var(--navy); }
+
+/* 제출 상세(이력 펼침) */
+.sd-block { padding: 8px 0; border-top: 1px dashed var(--gray-line); }
+.sd-block:first-child { border-top: none; }
+.sd-title { font-size: 12px; font-weight: 700; color: var(--navy); margin-bottom: 6px; }
+.sd-line { font-size: 12.5px; margin: 4px 0; color: var(--ink); }
+.sd-pro { color: var(--bull); margin-right: 4px; }
+.sd-con { color: var(--bear); margin-right: 4px; }
+
+/* 운용사 업로드 포털 */
+.portal-content { max-width: 860px; }
+.portal-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+.portal-actions .btn { text-decoration: none; display: inline-block; }
+
 /* ---------- Mobile (반응형) ---------- */
 @media (max-width: 768px) {
   .app-header { padding: 14px 16px 0; }
@@ -367,6 +406,9 @@ code { background: rgba(0,0,0,0.06); padding: 1px 5px; border-radius: 4px; font-
 
   .chat-drawer { width: 100%; max-width: 100vw; }
   .toast { width: calc(100% - 32px); text-align: center; }
+
+  .link-code { max-width: 200px; }
+  .portal-actions .btn { flex: 1 1 auto; text-align: center; }
 }
 
 @media (max-width: 420px) {
