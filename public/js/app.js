@@ -689,6 +689,13 @@
   }
 
   // ---------- 뷰 6: 제출 관리(관리자 마스터) ----------
+  // 위탁운용사 명단 — 일괄 링크 발급 대상
+  var AMC_ROSTER = [
+    'BNK자산운용', 'DB자산운용', 'KB자산운용', 'KCGI자산운용', 'V&S자산운용',
+    '다올자산운용', '더제이자산운용', '라이프자산운용', '마이다스자산운용', '미래에셋자산운용',
+    '브이아이자산운용', '삼성자산운용', '신한자산운용', '안다자산운용', '우리자산운용',
+    '키움투자자산운용', '트러스톤자산운용', '하나자산운용', '한국투자신탁운용', '한화자산운용'
+  ];
   function fmtDateTime(iso) {
     if (!iso) return '';
     try {
@@ -799,6 +806,20 @@
     html += '<div class="adm-row" style="margin-top:12px">' +
       '<input id="adm-new-amc" type="text" class="adm-input" placeholder="운용사명 입력 (예: KB자산운용)" />' +
       '<button class="btn btn-accent" id="adm-link-create" type="button">링크 발급</button></div>';
+
+    // 일괄 발급(명단 기준) + 전체 링크 내보내기
+    var issued = {};
+    res.links.forEach(function (l) { issued[l.amc] = 1; });
+    var missing = AMC_ROSTER.filter(function (a) { return !issued[a]; });
+    html += '<div class="adm-row" style="margin-top:10px">' +
+      '<button class="btn btn-plain" id="adm-bulk-create" type="button"' + (missing.length ? '' : ' disabled') + '>' +
+      '운용사 ' + AMC_ROSTER.length + '개사 일괄 발급' +
+      (missing.length ? ' (미발급 ' + missing.length + '개사)' : ' — 전체 발급됨') + '</button>' +
+      (res.links.length
+        ? '<button class="btn btn-plain" id="adm-copy-all" type="button">전체 링크 복사</button>' +
+          '<button class="btn btn-plain" id="adm-csv" type="button">CSV 다운로드</button>'
+        : '') +
+      '</div>';
     if (res.knownAmcs && res.knownAmcs.length) {
       html += '<div class="muted" style="margin-top:10px">제출 이력은 있으나 링크가 없는 운용사 — 눌러서 바로 발급:</div>' +
         '<div class="amc-chips" style="margin-top:6px">' +
@@ -855,6 +876,40 @@
     });
     host.querySelectorAll('[data-quick]').forEach(function (b) {
       b.addEventListener('click', function () { createFor(b.getAttribute('data-quick')); });
+    });
+    var bulkBtn = el('adm-bulk-create');
+    if (bulkBtn) bulkBtn.addEventListener('click', function () {
+      var issued = {};
+      res.links.forEach(function (l) { issued[l.amc] = 1; });
+      var missing = AMC_ROSTER.filter(function (a) { return !issued[a]; });
+      if (!missing.length) return;
+      if (!window.confirm('미발급 운용사 ' + missing.length + '개사의 업로드 링크를 일괄 발급할까요?\n\n' + missing.join(', '))) return;
+      adminAction({ action: 'link-create-bulk', amcs: missing }).then(function () {
+        renderAdmin();
+        showToast('운용사 ' + missing.length + '개사 링크를 일괄 발급했습니다.');
+      }).catch(function (e) { showToast('일괄 발급 실패: ' + e.message, true); });
+    });
+    var copyAllBtn = el('adm-copy-all');
+    if (copyAllBtn) copyAllBtn.addEventListener('click', function () {
+      var lines = res.links.map(function (l) { return l.amc + '\t' + location.origin + '/u/' + l.token; });
+      copyText(lines.join('\n'))
+        .then(function () { showToast('운용사 ' + res.links.length + '개사 링크를 복사했습니다 — 엑셀·메일에 바로 붙여넣을 수 있습니다.'); })
+        .catch(function () { showToast('복사에 실패했습니다 — CSV 다운로드를 이용하세요.', true); });
+    });
+    var csvBtn = el('adm-csv');
+    if (csvBtn) csvBtn.addEventListener('click', function () {
+      var rows = [['운용사', '업로드 링크', '발급일']].concat(res.links.map(function (l) {
+        return [l.amc, location.origin + '/u/' + l.token, fmtDateTime(l.created_at)];
+      }));
+      var csv = '﻿' + rows.map(function (r) { // BOM — 엑셀에서 한글 깨짐 방지
+        return r.map(function (c) { return '"' + String(c).replace(/"/g, '""') + '"'; }).join(',');
+      }).join('\r\n');
+      var blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+      var a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = '운용사_업로드_링크.csv';
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(a.href);
     });
     host.querySelectorAll('[data-copy]').forEach(function (b) {
       b.addEventListener('click', function () {
