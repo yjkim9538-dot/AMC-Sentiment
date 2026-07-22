@@ -3,7 +3,7 @@
 import { getEnv } from '../lib/ctx.js';
 import { getHistory } from '../lib/db.js';
 import {
-  listLinks, createLink, rotateLink, deleteLink,
+  listLinks, createLink, createLinks, rotateLink, deleteLink,
   getSettings, setActivePeriod,
 } from '../lib/links.js';
 
@@ -32,6 +32,12 @@ export default async (request) => {
   if (action === 'set-period') {
     const s = await setActivePeriod(store, String(body.period || '').trim());
     return Response.json({ ok: true, activePeriod: s.activePeriod });
+  }
+
+  if (action === 'link-create-bulk') {
+    const amcs = Array.isArray(body.amcs) ? body.amcs : [];
+    if (!amcs.length) return Response.json({ error: '운용사명 목록이 필요합니다.' }, { status: 400 });
+    return Response.json({ ok: true, links: await createLinks(store, amcs) });
   }
 
   const amc = String(body.amc || '').trim();

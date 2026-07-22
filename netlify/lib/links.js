@@ -32,6 +32,24 @@ export async function createLink(store, amc) {
   return { amc, ...map[amc] };
 }
 
+// 여러 운용사 일괄 발급 — 한 번의 읽기/쓰기로 처리. 이미 발급된 운용사는 기존 링크 유지.
+export async function createLinks(store, amcs) {
+  const map = await loadJson(store, LINKS_KEY, {});
+  let changed = false;
+  const out = [];
+  for (const raw of amcs) {
+    const amc = String(raw || '').trim();
+    if (!amc) continue;
+    if (!map[amc]) {
+      map[amc] = { token: newToken(), created_at: new Date().toISOString() };
+      changed = true;
+    }
+    out.push({ amc, ...map[amc] });
+  }
+  if (changed) await store.setJSON(LINKS_KEY, map);
+  return out;
+}
+
 // 재발급 — 기존 링크는 즉시 무효화된다(유출 대응).
 export async function rotateLink(store, amc) {
   const map = await loadJson(store, LINKS_KEY, {});
