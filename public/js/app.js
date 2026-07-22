@@ -10,9 +10,6 @@
   var OPINION_KEYS = ['매수', '중립', '매도'];
   var OVERSEAS_MARKETS = ['미국', '일본', '베트남', '인도', 'ACWI', '선진국'];
 
-  // 시트 이름(엑셀)
-  var SHEET = { market: '국내시장', stock: '국내종목', overseas: '해외' };
-
   // 전체 종합(운용사별 최신) 특수 회차값 — 백엔드 getConsensus 와 약속된 토큰
   var ALL_PERIODS = '__all__';
 
@@ -49,12 +46,7 @@
       .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;');
   }
-  function num(v) {
-    if (v === null || v === undefined || v === '') return null;
-    var n = Number(String(v).replace(/[, ]/g, ''));
-    return isNaN(n) ? null : n;
-  }
-  function fmt(n) { return n === null ? '-' : n.toLocaleString('ko-KR'); }
+  function fmt(n) { return n === null || n === undefined ? '-' : n.toLocaleString('ko-KR'); }
 
   function pad2(n) { return (n < 10 ? '0' : '') + n; }
   // 날짜 표기 통일 → 'YYYY-MM-DD'
@@ -499,159 +491,13 @@
   }
 
   // ---------- 엑셀 파싱 ----------
-  // 시트를 객체 배열로 변환. 헤더가 1행이 아니어도(제목·안내 행이 위에 있어도)
-  // '운용사명'이 들어간 행을 찾아 그 행을 헤더로 사용한다.
-  function sheetToRows(wb, name) {
-    var ws = wb.Sheets[name];
-    if (!ws) return [];
-    var aoa = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
-    if (!aoa.length) return [];
-    var hi = -1;
-    for (var i = 0; i < Math.min(aoa.length, 20); i++) {
-      var norm = (aoa[i] || []).map(function (x) { return String(x).replace(/\s/g, ''); });
-      if (norm.indexOf('운용사명') >= 0 || norm.indexOf('운용사') >= 0) { hi = i; break; }
-    }
-    if (hi < 0) hi = 0;
-    var headers = (aoa[hi] || []).map(function (x) { return String(x).trim(); });
-    var out = [];
-    for (var r = hi + 1; r < aoa.length; r++) {
-      var arr = aoa[r] || [];
-      var obj = {}, any = false;
-      for (var c = 0; c < headers.length; c++) {
-        if (!headers[c]) continue;
-        var v = arr[c] === undefined ? '' : arr[c];
-        obj[headers[c]] = v;
-        if (String(v).trim() !== '') any = true;
-      }
-      if (any) out.push(obj);
-    }
-    return out;
-  }
-  function pick(row, keys) {
-    for (var i = 0; i < keys.length; i++) {
-      var k = keys[i];
-      if (row[k] !== undefined && row[k] !== '') return row[k];
-    }
-    // 부분 일치(공백/괄호/밑줄 차이 대응 — 양식 헤더 표기가 달라도 인식)
-    var norm = function (x) { return x.replace(/[\s()（）_]/g, ''); };
-    var rk = Object.keys(row);
-    for (var j = 0; j < keys.length; j++) {
-      for (var m = 0; m < rk.length; m++) {
-        if (norm(rk[m]).indexOf(norm(keys[j])) >= 0) {
-          if (row[rk[m]] !== '') return row[rk[m]];
-        }
-      }
-    }
-    return '';
-  }
-
-  // 양식의 안내/예시 행은 데이터에서 제외
-  function isGuideRow(amc) {
-    if (!amc) return true;
-    return /^※/.test(amc) || /작성요령/.test(amc) || /^\(예시\)/.test(amc);
-  }
-
-  // 운용사명을 행마다 다시 적지 않아도 되도록 — 빈 칸은 위에서 마지막으로 본
-  // (예시 아닌) 운용사명을 상속받는다. 한 파일은 한 운용사 작성 기준.
-  function effAmc(rows, fallback) {
-    var last = '', out = [];
-    for (var i = 0; i < rows.length; i++) {
-      var a = String(pick(rows[i], ['운용사명', '운용사'])).trim();
-      if (a) {
-        // 값이 있는 칸: 예시(안내)행이면 상속하지 않고 빈값으로 둬 downstream 필터가 제거,
-        // 실제 운용사명이면 그대로 쓰고 이후 행이 상속할 기준으로 기억한다.
-        if (isGuideRow(a)) { out.push(''); }
-        else { last = a; out.push(a); }
-      } else {
-        out.push(last || fallback || ''); // 빈 칸 → 위 운용사명(또는 파일 단일 운용사명) 상속
-      }
-    }
-    return out;
-  }
-
-  function parseWorkbook(wb) {
-    var mRows = sheetToRows(wb, SHEET.market);
-    var sRows = sheetToRows(wb, SHEET.stock);
-    var oRows = sheetToRows(wb, SHEET.overseas);
-
-    var mAmc = effAmc(mRows, '');
-    var domesticMarket = mRows.map(function (r, i) {
-      return {
-        amc: mAmc[i],
-        asOf: fmtDate(pick(r, ['작성일'])),
-        view: String(pick(r, ['방향성', '전망'])).trim(),
-        targetLow: num(pick(r, ['KOSPI목표_하단', '목표_하단', '하단'])),
-        targetHigh: num(pick(r, ['KOSPI목표_상단', '목표_상단', '상단'])),
-        pro: String(pick(r, ['Pro(긍정사유)', 'Pro', '긍정사유', '긍정'])).trim(),
-        con: String(pick(r, ['Con(부정사유)', 'Con', '부정사유', '부정'])).trim()
-      };
-    }).filter(function (r) { return r.amc && !isGuideRow(r.amc); });
-
-    // 종목·해외 시트에서 운용사명이 비어 있으면, 시장 시트의 단일 운용사명으로 보완
-    var distinct = {};
-    domesticMarket.forEach(function (r) { if (r.amc) distinct[r.amc] = 1; });
-    var dkeys = Object.keys(distinct);
-    var fileAmc = dkeys.length === 1 ? dkeys[0] : '';
-
-    var sAmc = effAmc(sRows, fileAmc);
-    var domesticStocks = sRows.map(function (r, i) {
-      return {
-        amc: sAmc[i],
-        stock: String(pick(r, ['종목명', '종목'])).trim(),
-        opinion: String(pick(r, ['의견'])).trim(),
-        reason: String(pick(r, ['사유', '의견사유'])).trim()
-      };
-    }).filter(function (r) { return r.amc && r.stock && !isGuideRow(r.amc); });
-
-    var oAmc = effAmc(oRows, fileAmc);
-    var overseas = oRows.map(function (r, i) {
-      return {
-        amc: oAmc[i],
-        asOf: fmtDate(pick(r, ['작성일'])),
-        market: String(pick(r, ['시장'])).trim(),
-        index: String(pick(r, ['기준지수', '지수'])).trim(),
-        view: String(pick(r, ['방향성', '전망'])).trim(),
-        targetLow: num(pick(r, ['목표_하단', '하단'])),
-        targetHigh: num(pick(r, ['목표_상단', '상단'])),
-        pro: String(pick(r, ['Pro(긍정사유)', 'Pro', '긍정사유', '긍정'])).trim(),
-        con: String(pick(r, ['Con(부정사유)', 'Con', '부정사유', '부정'])).trim()
-      };
-    }).filter(function (r) {
-      // 시장명만 미리 채워진(운용사가 작성하지 않은) 빈 행은 제외 — 실제 내용이 있어야 채택
-      var hasContent = r.view || r.targetLow || r.targetHigh || r.pro || r.con;
-      return r.amc && r.market && hasContent && !isGuideRow(r.amc);
-    });
-
-    return { domesticMarket: domesticMarket, domesticStocks: domesticStocks, overseas: overseas };
-  }
-
-  // 엑셀 한 개를 읽어 파싱(Promise). 실패해도 reject 하지 않고 parsed:null 로 반환.
-  function readWorkbook(file) {
-    return new Promise(function (resolve) {
-      var reader = new FileReader();
-      reader.onload = function (e) {
-        try {
-          var wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
-          resolve({ fileName: file.name, parsed: parseWorkbook(wb) });
-        } catch (err) {
-          console.error(err);
-          resolve({ fileName: file.name, parsed: null });
-        }
-      };
-      reader.onerror = function () { resolve({ fileName: file.name, parsed: null }); };
-      reader.readAsArrayBuffer(file);
-    });
-  }
-
-  function hasData(p) {
-    return p && (p.domesticMarket.length || p.domesticStocks.length || p.overseas.length);
-  }
+  // 파서는 운용사 업로드 페이지와 공용 — js/xlsx-parse.js (window.AMCParse)
 
   // 여러 파일을 한 번에 처리 — 모두 합쳐 한 회차로 누적(백엔드) / 미리보기(오프라인).
   function handleFiles(fileList) {
     var files = Array.prototype.slice.call(fileList);
-    Promise.all(files.map(readWorkbook)).then(function (results) {
-      var ok = results.filter(function (r) { return hasData(r.parsed); });
+    Promise.all(files.map(AMCParse.readWorkbook)).then(function (results) {
+      var ok = results.filter(function (r) { return AMCParse.hasData(r.parsed); });
       var failed = results.length - ok.length;
       if (!ok.length) {
         showToast('인식 가능한 데이터가 없습니다. 양식(국내시장/국내종목/해외 시트)을 확인해 주세요.', true);
@@ -842,11 +688,213 @@
     });
   }
 
+  // ---------- 뷰 6: 제출 관리(관리자 마스터) ----------
+  function fmtDateTime(iso) {
+    if (!iso) return '';
+    try {
+      return new Date(iso).toLocaleString('ko-KR', {
+        timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit',
+        hour: '2-digit', minute: '2-digit', hour12: false
+      });
+    } catch (e) { return iso; }
+  }
+
+  // 제출 1건의 내용 상세(국내 시장/종목/해외) — 이력 행 펼침에 사용
+  function submissionDetailHtml(data) {
+    var d = data || {};
+    var html = '';
+    if (d.domesticMarket) {
+      var m = d.domesticMarket;
+      html += '<div class="sd-block"><div class="sd-title">국내 시장</div><div class="sd-line">' +
+        badge(m.view || '-', viewClass(m.view)) +
+        ' <span class="band">KOSPI ' + fmt(m.targetLow) + ' ~ ' + fmt(m.targetHigh) + '</span>' +
+        (m.asOf ? ' <span class="muted">작성일 ' + esc(m.asOf) + '</span>' : '') + '</div>' +
+        (m.pro ? '<div class="sd-line"><strong class="sd-pro">Pro</strong> ' + esc(m.pro) + '</div>' : '') +
+        (m.con ? '<div class="sd-line"><strong class="sd-con">Con</strong> ' + esc(m.con) + '</div>' : '') +
+        '</div>';
+    }
+    var stocks = d.domesticStocks || [];
+    if (stocks.length) {
+      html += '<div class="sd-block"><div class="sd-title">국내 종목 · ' + stocks.length + '건</div><ul class="expand-list">' +
+        stocks.map(function (s) {
+          return '<li><span class="el-amc">' + esc(s.stock) + '</span>' + badge(s.opinion, opinionClass(s.opinion)) +
+            ' <span class="sp-reason">' + esc(s.reason) + '</span></li>';
+        }).join('') + '</ul></div>';
+    }
+    var ovs = d.overseas || [];
+    if (ovs.length) {
+      html += '<div class="sd-block"><div class="sd-title">해외 시장 · ' + ovs.length + '건</div><ul class="expand-list">' +
+        ovs.map(function (o) {
+          return '<li><span class="el-amc">' + esc(o.market) + '</span>' + badge(o.view, viewClass(o.view)) +
+            ' <span class="muted">' + fmt(o.targetLow) + ' ~ ' + fmt(o.targetHigh) + '</span>' +
+            (o.pro ? '<div class="sd-line"><strong class="sd-pro">Pro</strong> ' + esc(o.pro) + '</div>' : '') +
+            (o.con ? '<div class="sd-line"><strong class="sd-con">Con</strong> ' + esc(o.con) + '</div>' : '') + '</li>';
+        }).join('') + '</ul></div>';
+    }
+    return html || '<span class="muted">데이터 없음</span>';
+  }
+
+  function copyText(text) {
+    if (navigator.clipboard && navigator.clipboard.writeText) return navigator.clipboard.writeText(text);
+    return new Promise(function (resolve, reject) {
+      var ta = document.createElement('textarea');
+      ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.select();
+      try { document.execCommand('copy'); resolve(); } catch (e) { reject(e); }
+      ta.remove();
+    });
+  }
+
+  function adminAction(body) {
+    return api('/api/admin', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+  }
+
+  function renderAdmin() {
+    var host = el('admin');
+    if (!backend) { host.innerHTML = '<div class="empty">제출 관리는 데이터 저장소 연결 시 제공됩니다.</div>'; return; }
+    host.innerHTML = '<div class="empty">불러오는 중…</div>';
+    api('/api/admin').then(function (res) {
+      renderAdminBody(host, res);
+    }).catch(function (err) {
+      host.innerHTML = '<div class="empty">불러오기 실패: ' + esc(err.message) + '</div>';
+    });
+  }
+
+  function renderAdminBody(host, res) {
+    var html = '';
+
+    // 1) 접수 회차
+    html += '<div class="section-title">접수 회차 설정</div>';
+    html += '<div class="card"><div class="adm-row">' +
+      '<input id="adm-period" type="text" class="adm-input" placeholder="예: 2026-3Q 또는 2026-07-21" value="' + esc(res.activePeriod) + '" />' +
+      '<button class="btn btn-primary" id="adm-period-save" type="button">저장</button></div>' +
+      '<p class="muted" style="margin:10px 0 0">운용사가 링크로 업로드하면 이 회차로 저장됩니다. 비워 두면 업로드 당일 날짜로 저장됩니다.</p></div>';
+
+    // 2) 운용사 업로드 링크
+    html += '<div class="section-title">운용사 업로드 링크</div>';
+    html += '<div class="card">';
+    if (res.links.length) {
+      html += '<div class="table-wrap"><table><thead><tr>' +
+        '<th>운용사</th><th>업로드 링크</th><th>발급일</th><th class="cell-center">동작</th>' +
+        '</tr></thead><tbody>';
+      res.links.forEach(function (l) {
+        var url = location.origin + '/u/' + l.token;
+        html += '<tr><td><strong>' + esc(l.amc) + '</strong></td>' +
+          '<td><code class="link-code" title="' + esc(url) + '">' + esc(url) + '</code></td>' +
+          '<td class="muted">' + esc(fmtDateTime(l.created_at)) + '</td>' +
+          '<td class="cell-center adm-acts">' +
+          '<button type="button" class="btn btn-mini btn-primary" data-copy="' + esc(url) + '">복사</button>' +
+          '<button type="button" class="btn btn-mini btn-plain" data-rotate="' + esc(l.amc) + '">재발급</button>' +
+          '<button type="button" class="btn btn-mini btn-danger" data-del="' + esc(l.amc) + '">삭제</button>' +
+          '</td></tr>';
+      });
+      html += '</tbody></table></div>';
+    } else {
+      html += '<p class="muted" style="margin:0">발급된 링크가 없습니다. 운용사명을 입력해 링크를 발급한 뒤, 해당 운용사에게만 전달하세요.</p>';
+    }
+    html += '<div class="adm-row" style="margin-top:12px">' +
+      '<input id="adm-new-amc" type="text" class="adm-input" placeholder="운용사명 입력 (예: KB자산운용)" />' +
+      '<button class="btn btn-accent" id="adm-link-create" type="button">링크 발급</button></div>';
+    if (res.knownAmcs && res.knownAmcs.length) {
+      html += '<div class="muted" style="margin-top:10px">제출 이력은 있으나 링크가 없는 운용사 — 눌러서 바로 발급:</div>' +
+        '<div class="amc-chips" style="margin-top:6px">' +
+        res.knownAmcs.map(function (a) {
+          return '<button type="button" class="amc-chip amc-chip-btn" data-quick="' + esc(a) + '">' + esc(a) + ' +</button>';
+        }).join('') + '</div>';
+    }
+    html += '<p class="muted" style="margin:12px 0 0">링크를 받은 운용사는 로그인 없이 본인 파일 업로드와 본인 제출 이력만 볼 수 있습니다. ' +
+      '링크가 외부로 유출되면 "재발급"으로 즉시 무효화하세요.</p>';
+    html += '</div>';
+
+    // 3) 전체 업로드·수정 이력 (append-only 원본 전부)
+    html += '<div class="section-title">전체 업로드 · 수정 이력 <span class="muted">(' + res.history.length + '건)</span></div>';
+    if (!res.history.length) {
+      html += '<div class="empty">아직 제출 이력이 없습니다.</div>';
+    } else {
+      html += '<div class="table-wrap"><table><thead><tr>' +
+        '<th>운용사</th><th>제출 일시</th><th>회차</th><th>구분</th><th>반영</th><th></th>' +
+        '</tr></thead><tbody>';
+      res.history.forEach(function (h, i) {
+        html += '<tr class="clickable" data-expand="hist-' + i + '">' +
+          '<td><strong>' + esc(h.amc) + '</strong></td>' +
+          '<td class="muted">' + esc(fmtDateTime(h.created_at)) + '</td>' +
+          '<td>' + esc(h.period) + '</td>' +
+          '<td>' + (h.revision === 'update' ? badge('수정 제출', 'warn') : badge('최초 제출', 'neutral')) + '</td>' +
+          '<td>' + (h.current ? badge('최신 반영', 'ok') : badge('이전본', 'off')) + '</td>' +
+          '<td class="cell-center muted">▼ 상세</td></tr>';
+        html += '<tr class="expand-row" id="hist-' + i + '" style="display:none"><td colspan="6">' +
+          submissionDetailHtml(h.data) + '</td></tr>';
+      });
+      html += '</tbody></table></div>';
+    }
+
+    host.innerHTML = html;
+
+    // 바인딩
+    el('adm-period-save').addEventListener('click', function () {
+      adminAction({ action: 'set-period', period: el('adm-period').value.trim() }).then(function (r) {
+        showToast(r.activePeriod
+          ? '접수 회차를 "' + r.activePeriod + '"(으)로 설정했습니다.'
+          : '접수 회차를 비웠습니다 — 업로드 당일 날짜로 저장됩니다.');
+      }).catch(function (e) { showToast('저장 실패: ' + e.message, true); });
+    });
+    function createFor(name) {
+      if (!name) { showToast('운용사명을 입력하세요.', true); return; }
+      adminAction({ action: 'link-create', amc: name }).then(function () {
+        renderAdmin();
+        showToast('"' + name + '" 업로드 링크를 발급했습니다.');
+      }).catch(function (e) { showToast('발급 실패: ' + e.message, true); });
+    }
+    el('adm-link-create').addEventListener('click', function () { createFor(el('adm-new-amc').value.trim()); });
+    el('adm-new-amc').addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') { e.preventDefault(); createFor(e.target.value.trim()); }
+    });
+    host.querySelectorAll('[data-quick]').forEach(function (b) {
+      b.addEventListener('click', function () { createFor(b.getAttribute('data-quick')); });
+    });
+    host.querySelectorAll('[data-copy]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        copyText(b.getAttribute('data-copy'))
+          .then(function () { showToast('링크를 복사했습니다.'); })
+          .catch(function () { showToast('복사에 실패했습니다 — 링크를 직접 선택해 복사하세요.', true); });
+      });
+    });
+    host.querySelectorAll('[data-rotate]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var amc = b.getAttribute('data-rotate');
+        if (!window.confirm('"' + amc + '" 링크를 재발급할까요?\n기존 링크는 즉시 사용할 수 없게 됩니다.')) return;
+        adminAction({ action: 'link-rotate', amc: amc }).then(function () {
+          renderAdmin();
+          showToast('재발급 완료 — 새 링크를 해당 운용사에 다시 전달하세요.');
+        }).catch(function (e) { showToast('재발급 실패: ' + e.message, true); });
+      });
+    });
+    host.querySelectorAll('[data-del]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var amc = b.getAttribute('data-del');
+        if (!window.confirm('"' + amc + '" 링크를 삭제할까요?\n해당 운용사는 더 이상 업로드할 수 없습니다. (이미 제출된 데이터는 유지됩니다)')) return;
+        adminAction({ action: 'link-delete', amc: amc }).then(function () {
+          renderAdmin();
+          showToast('링크를 삭제했습니다.');
+        }).catch(function (e) { showToast('삭제 실패: ' + e.message, true); });
+      });
+    });
+    bindStockExpand(host);
+  }
+
   // ---------- 초기화 ----------
   function init() {
     // 공통 UI 바인딩
     document.querySelectorAll('.tab').forEach(function (t) {
-      t.addEventListener('click', function () { activateTab(t.getAttribute('data-tab')); });
+      t.addEventListener('click', function () {
+        var id = t.getAttribute('data-tab');
+        activateTab(id);
+        if (id === 'admin') renderAdmin(); // 관리 탭은 열 때마다 최신 상태 로드
+      });
     });
     el('file-input').addEventListener('change', function (e) {
       if (e.target.files && e.target.files.length) handleFiles(e.target.files);
